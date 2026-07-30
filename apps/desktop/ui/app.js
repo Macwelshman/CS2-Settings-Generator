@@ -261,10 +261,27 @@ function summaryCard(value, label, status = "") {
 }
 
 function formatKind(kind) {
-  return kind
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/^./, (letter) => letter.toUpperCase())
-    .replace(/Lod/g, "LOD");
+  const labels = {
+    main: "Main",
+    lod1: "LOD1",
+    lod2: "LOD2",
+    window: "Window",
+    lod1Window: "LOD1 Window",
+    lod2Window: "LOD2 Window",
+    milkyWindow: "Milky Window",
+    lod1MilkyWindow: "LOD1 Milky Window",
+    lod2MilkyWindow: "LOD2 Milky Window",
+    glass: "Glass",
+    lod1Glass: "LOD1 Glass",
+    lod2Glass: "LOD2 Glass",
+    grass: "Grass",
+    lod1Grass: "LOD1 Grass",
+    lod2Grass: "LOD2 Grass",
+    water: "Water",
+    lod1Water: "LOD1 Water",
+    lod2Water: "LOD2 Water",
+  };
+  return labels[kind] ?? kind;
 }
 
 function escapeHtml(value) {
@@ -283,4 +300,3 @@ function showToast(message) {
   elements.toast.classList.remove("is-hidden");
   toastTimer = setTimeout(() => elements.toast.classList.add("is-hidden"), 5000);
 }
-

@@ -26,9 +26,18 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "signingIdentity": "-"
+    },
     "category": "DeveloperTool",
     "shortDescription": "Generate CS2 shared-texture settings files",
     "longDescription": "Scan Cities: Skylines II export folders, validate FBX and texture files, preview shared texture mappings, and generate settings.json files."
   }
 }
-

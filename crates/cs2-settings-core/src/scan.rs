@@ -132,14 +132,6 @@ pub fn scan_export_folder(root: &Path) -> Result<ScanResult, ScanError> {
                 &folder,
             ));
         }
-        if !has_lod2 {
-            issues.push(Issue::warning(
-                "lod2Missing",
-                "No LOD2 FBX was found. CS2 building assets require an LOD2 mesh.",
-                &folder,
-            ));
-        }
-
         let main_material = files
             .iter()
             .find(|file| file.kind == FbxKind::Main)

@@ -4,7 +4,7 @@ Cross-platform macOS and Windows utility for scanning a Cities: Skylines II
 asset export folder, validating its FBX and texture files, and generating the
 `settings.json` files required for shared textures.
 
-## Planned workflow
+## Workflow
 
 1. Drag or choose an overall export folder.
 2. Scan asset folders recursively.
@@ -26,10 +26,30 @@ asset export folder, validating its FBX and texture files, and generating the
 The scanner will report import-readiness warnings alongside settings generation:
 
 - Main and LOD1 meshes should contain exactly one material.
-- LOD2 meshes should contain no materials.
+- LOD2 is optional; when present, its mesh should contain no materials.
 - `_Win`, `_Wim`, `_Gls`, `_Gra`, and `_Wat` sub-meshes must contain no material.
+- A material may be shared by differently named meshes; its name is used to
+  resolve the correct texture provider, not compared with the mesh filename.
 - Texture names, formats, dimensions, and supported CS2 suffixes are checked.
 - Ambiguous texture sets and unrecognised FBX suffixes require review.
 
 The `Belfort Van Ghent` folder is retained locally as reference data and is
 intentionally excluded from version control.
+
+## Build and package
+
+Run all cross-platform core tests:
+
+```sh
+cargo test --workspace
+```
+
+Build the macOS app locally:
+
+```sh
+cargo tauri build --bundles app
+```
+
+The GitHub Actions workflow tests every push and pull request on macOS and
+Windows. Its manual `workflow_dispatch` action also creates downloadable
+macOS and Windows bundle artifacts.

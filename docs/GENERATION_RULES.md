@@ -34,6 +34,14 @@ Main and LOD1 meshes should contain exactly one material. LOD2 meshes and shader
 sub-meshes must contain no materials. These checks produce warnings and do not
 by themselves prevent settings generation.
 
+LOD2 is optional because smaller assets such as props and decals may not require
+one. Its absence is not a warning; when an LOD2 FBX is present, its material and
+texture rules are validated normally.
+
+The material name does not need to match the FBX or mesh name. It identifies
+the texture provider, so multiple differently named meshes can correctly use a
+shared material such as `Belfort Van Ghent` or `Belfort Van Ghent Details`.
+
 ## Texture recognition
 
 The main and LOD2 texture sets can contain:

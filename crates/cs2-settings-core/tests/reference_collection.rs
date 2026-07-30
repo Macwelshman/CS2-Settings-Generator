@@ -11,6 +11,13 @@ fn supplied_reference_settings_are_reproduced_when_available() {
 
     let scan = cs2_settings_core::scan_export_folder(&root).expect("reference scan should succeed");
     assert_eq!(scan.assets.len(), 10);
+    assert!(
+        scan.assets
+            .iter()
+            .flat_map(|asset| &asset.issues)
+            .all(|issue| issue.code != "materialNameMismatch"),
+        "shared material names must not be compared with individual mesh names"
+    );
 
     for asset in scan.assets {
         let existing_path = asset.folder.join("settings.json");

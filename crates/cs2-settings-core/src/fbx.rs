@@ -119,20 +119,6 @@ pub fn inspect_fbx(path: &Path, kind: FbxKind) -> (FbxFile, Vec<Issue>) {
                 path,
             ));
         }
-
-        if kind.requires_one_material() && material_names.len() == 1 {
-            let valid_materials = [expected_stem.clone(), format!("{expected_stem}_Mtl")];
-            if !valid_materials.contains(&material_names[0]) {
-                issues.push(Issue::warning(
-                    "materialNameMismatch",
-                    format!(
-                        "Material “{}” does not match “{expected_stem}” or “{expected_stem}_Mtl”.",
-                        material_names[0]
-                    ),
-                    path,
-                ));
-            }
-        }
     }
 
     (
@@ -159,5 +145,14 @@ mod tests {
         );
         assert_eq!(classify_fbx("House_LOD1"), ("House", FbxKind::Lod1));
         assert_eq!(classify_fbx("House"), ("House", FbxKind::Main));
+    }
+
+    #[test]
+    fn lod2_and_shader_meshes_require_no_materials() {
+        assert!(FbxKind::Main.requires_one_material());
+        assert!(FbxKind::Lod1.requires_one_material());
+        assert!(FbxKind::Lod2.requires_no_material());
+        assert!(FbxKind::Window.requires_no_material());
+        assert!(FbxKind::Lod2Window.requires_no_material());
     }
 }
