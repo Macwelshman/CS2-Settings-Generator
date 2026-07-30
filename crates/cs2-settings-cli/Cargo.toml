@@ -1,0 +1,15 @@
+[package]
+name = "cs2-settings-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "cs2-settings"
+path = "src/main.rs"
+
+[dependencies]
+cs2-settings-core = { path = "../cs2-settings-core" }
+serde_json.workspace = true
+
