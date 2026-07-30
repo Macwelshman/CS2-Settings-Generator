@@ -1,5 +1,5 @@
 const invoke = window.__TAURI__?.core?.invoke;
-const appWindow = window.__TAURI__?.webviewWindow?.getCurrentWebviewWindow?.();
+const appWebview = window.__TAURI__?.webview?.getCurrentWebview?.();
 
 const state = {
   root: null,
@@ -33,18 +33,29 @@ for (const button of elements.chooseButtons) {
 elements.rescan.addEventListener("click", () => state.root && scanFolder(state.root));
 elements.generate.addEventListener("click", generateSettings);
 
-if (appWindow?.onDragDropEvent) {
-  appWindow.onDragDropEvent((event) => {
-    if (event.payload.type === "over") {
-      elements.dropZone.classList.add("is-dragging");
-    } else if (event.payload.type === "leave") {
-      elements.dropZone.classList.remove("is-dragging");
-    } else if (event.payload.type === "drop") {
-      elements.dropZone.classList.remove("is-dragging");
-      const folder = event.payload.paths?.[0];
-      if (folder) scanFolder(folder);
-    }
-  });
+initializeDragDrop();
+
+async function initializeDragDrop() {
+  if (!appWebview?.onDragDropEvent) {
+    showToast("Folder drag-and-drop is unavailable. Use Choose Folder instead.");
+    return;
+  }
+
+  try {
+    await appWebview.onDragDropEvent((event) => {
+      if (event.payload.type === "enter" || event.payload.type === "over") {
+        elements.dropZone.classList.add("is-dragging");
+      } else if (event.payload.type === "leave") {
+        elements.dropZone.classList.remove("is-dragging");
+      } else if (event.payload.type === "drop") {
+        elements.dropZone.classList.remove("is-dragging");
+        const folder = event.payload.paths?.[0];
+        if (folder) scanFolder(folder);
+      }
+    });
+  } catch (error) {
+    showToast(`Could not enable folder drag-and-drop: ${String(error)}`);
+  }
 }
 
 async function chooseFolder() {

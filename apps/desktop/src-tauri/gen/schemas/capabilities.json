@@ -1,1 +1,1 @@
-{}
+{"main":{"identifier":"main","description":"Allows the main webview to listen for native folder drag-and-drop events.","local":true,"windows":["main"],"permissions":["core:event:default"]}}
