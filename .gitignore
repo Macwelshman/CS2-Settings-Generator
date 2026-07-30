@@ -10,6 +10,7 @@ src-tauri/target/
 # Frontend dependencies and build output
 node_modules/
 dist/
+apps/desktop/dist/
 
 # Local IDE and environment files
 .idea/
@@ -17,4 +18,3 @@ dist/
 .env
 .env.*
 !.env.example
-

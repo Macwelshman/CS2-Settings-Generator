@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CS2 Settings Generator</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="toolbar">
+      <div>
+        <p class="eyebrow">Cities: Skylines II</p>
+        <h1>Settings Generator</h1>
+      </div>
+      <button id="choose-folder" class="button button-primary">Choose Export Folder…</button>
+    </header>
+
+    <main id="app">
+      <section id="drop-zone" class="drop-zone">
+        <div class="folder-mark" aria-hidden="true">
+          <span></span>
+        </div>
+        <h2>Drop an Export Folder Here</h2>
+        <p>
+          The folder can contain multiple asset folders, FBX variants, and shared
+          texture sets.
+        </p>
+        <button id="choose-folder-empty" class="button button-secondary">
+          Choose Folder…
+        </button>
+      </section>
+
+      <section id="workspace" class="workspace is-hidden" aria-live="polite">
+        <div class="folder-strip">
+          <div class="folder-copy">
+            <span class="status-dot"></span>
+            <div>
+              <span class="label">Export Folder</span>
+              <strong id="folder-path"></strong>
+            </div>
+          </div>
+          <button id="rescan" class="button button-quiet">Rescan</button>
+        </div>
+
+        <div id="summary" class="summary"></div>
+
+        <div class="content-grid">
+          <aside class="asset-panel">
+            <div class="panel-heading">
+              <h2>Assets</h2>
+              <span id="asset-count" class="count-pill"></span>
+            </div>
+            <div id="asset-list" class="asset-list"></div>
+          </aside>
+
+          <section id="asset-detail" class="detail-panel"></section>
+        </div>
+
+        <footer class="generation-bar">
+          <label class="replace-option">
+            <input id="replace-existing" type="checkbox" />
+            <span>Replace existing settings files</span>
+          </label>
+          <div class="generation-actions">
+            <span id="generation-note"></span>
+            <button id="generate" class="button button-primary">
+              Generate Settings Files
+            </button>
+          </div>
+        </footer>
+      </section>
+    </main>
+
+    <div id="toast" class="toast is-hidden" role="status"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
+

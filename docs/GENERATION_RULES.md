@@ -30,9 +30,9 @@ Recognised shader sub-mesh suffixes:
 
 The same suffixes are recognised after `_LOD1` and `_LOD2`.
 
-Main and LOD meshes should contain exactly one material. Shader sub-meshes must
-contain no materials. These checks produce warnings and do not by themselves
-prevent settings generation.
+Main and LOD1 meshes should contain exactly one material. LOD2 meshes and shader
+sub-meshes must contain no materials. These checks produce warnings and do not
+by themselves prevent settings generation.
 
 ## Texture recognition
 
@@ -70,4 +70,3 @@ set.
 4. If exactly one LOD2 texture set exists in the export folder, it can be chosen
    automatically.
 5. Multiple candidates remain unresolved for user review.
-

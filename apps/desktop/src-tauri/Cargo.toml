@@ -1,0 +1,24 @@
+[package]
+name = "cs2-settings-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "cs2_settings_desktop_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "cs2-settings-generator"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+cs2-settings-core = { path = "../../../crates/cs2-settings-core" }
+rfd = "0.15"
+serde.workspace = true
+tauri.workspace = true
+

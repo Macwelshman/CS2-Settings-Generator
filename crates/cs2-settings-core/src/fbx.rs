@@ -73,28 +73,28 @@ pub fn inspect_fbx(path: &Path, kind: FbxKind) -> (FbxFile, Vec<Issue>) {
         };
 
     if parse_error.is_none() {
-        if kind.is_material_mesh() {
+        if kind.requires_one_material() {
             match material_names.len() {
                 0 => issues.push(Issue::warning(
                     "materialMissing",
-                    "Main and LOD meshes should contain exactly one material; none were found.",
+                    "Main and LOD1 meshes should contain exactly one material; none were found.",
                     path,
                 )),
                 1 => {}
                 count => issues.push(Issue::warning(
                     "multipleMaterials",
                     format!(
-                        "Main and LOD meshes support exactly one material; {count} were found: {}.",
+                        "Main and LOD1 meshes support exactly one material; {count} were found: {}.",
                         material_names.join(", ")
                     ),
                     path,
                 )),
             }
-        } else if !material_names.is_empty() {
+        } else if kind.requires_no_material() && !material_names.is_empty() {
             issues.push(Issue::warning(
-                "subMeshHasMaterial",
+                "materialNotAllowed",
                 format!(
-                    "CS2 sub-mesh FBXs must contain no materials; found: {}.",
+                    "LOD2 and shader sub-mesh FBXs must contain no materials; found: {}.",
                     material_names.join(", ")
                 ),
                 path,
@@ -120,7 +120,7 @@ pub fn inspect_fbx(path: &Path, kind: FbxKind) -> (FbxFile, Vec<Issue>) {
             ));
         }
 
-        if kind.is_material_mesh() && material_names.len() == 1 {
+        if kind.requires_one_material() && material_names.len() == 1 {
             let valid_materials = [expected_stem.clone(), format!("{expected_stem}_Mtl")];
             if !valid_materials.contains(&material_names[0]) {
                 issues.push(Issue::warning(

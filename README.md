@@ -25,11 +25,11 @@ asset export folder, validating its FBX and texture files, and generating the
 
 The scanner will report import-readiness warnings alongside settings generation:
 
-- Main, LOD1, and LOD2 meshes should contain exactly one material.
+- Main and LOD1 meshes should contain exactly one material.
+- LOD2 meshes should contain no materials.
 - `_Win`, `_Wim`, `_Gls`, `_Gra`, and `_Wat` sub-meshes must contain no material.
 - Texture names, formats, dimensions, and supported CS2 suffixes are checked.
 - Ambiguous texture sets and unrecognised FBX suffixes require review.
 
 The `Belfort Van Ghent` folder is retained locally as reference data and is
 intentionally excluded from version control.
-

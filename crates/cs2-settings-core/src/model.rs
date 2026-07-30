@@ -11,6 +11,32 @@ pub struct ScanResult {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GenerationReport {
+    pub root: PathBuf,
+    pub items: Vec<GenerationItem>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerationItem {
+    pub asset_name: String,
+    pub output_path: PathBuf,
+    pub action: GenerationAction,
+    pub message: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum GenerationAction {
+    Generated,
+    Replaced,
+    SkippedExisting,
+    SkippedInvalid,
+    Failed,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AssetScan {
     pub name: String,
     pub folder: PathBuf,
@@ -55,12 +81,12 @@ pub enum FbxKind {
 }
 
 impl FbxKind {
-    pub fn is_material_mesh(self) -> bool {
-        matches!(self, Self::Main | Self::Lod1 | Self::Lod2)
+    pub fn requires_one_material(self) -> bool {
+        matches!(self, Self::Main | Self::Lod1)
     }
 
-    pub fn is_sub_mesh(self) -> bool {
-        !self.is_material_mesh()
+    pub fn requires_no_material(self) -> bool {
+        !self.requires_one_material()
     }
 
     pub fn is_lod1(self) -> bool {

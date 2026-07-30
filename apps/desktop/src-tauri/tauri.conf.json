@@ -1,0 +1,34 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "CS2 Settings Generator",
+  "version": "0.1.0",
+  "identifier": "com.macwelshman.cs2-settings-generator",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "CS2 Settings Generator",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 900,
+        "minHeight": 600,
+        "center": true,
+        "dragDropEnabled": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "DeveloperTool",
+    "shortDescription": "Generate CS2 shared-texture settings files",
+    "longDescription": "Scan Cities: Skylines II export folders, validate FBX and texture files, preview shared texture mappings, and generate settings.json files."
+  }
+}
+
