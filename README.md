@@ -33,9 +33,6 @@ The scanner will report import-readiness warnings alongside settings generation:
 - Texture names, formats, dimensions, and supported CS2 suffixes are checked.
 - Ambiguous texture sets and unrecognised FBX suffixes require review.
 
-The `Belfort Van Ghent` folder is retained locally as reference data and is
-intentionally excluded from version control.
-
 ## Build and package
 
 Run all cross-platform core tests:
