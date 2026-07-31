@@ -70,7 +70,9 @@ My Export/
 4. Review the summary for asset folders, texture redirects, warnings, and
    blocking errors.
 
-![Texture-set selection for a multi-asset export](images/texture-set-mapping.jpg)
+<p align="center">
+  <img src="./images/texture-set-mapping.png" width="900" alt="Texture-set selection for a multi-asset export">
+</p>
 
 Select an asset in the left column to inspect:
 
