@@ -4,6 +4,9 @@ Cross-platform macOS and Windows utility for scanning a Cities: Skylines II
 asset export folder, validating its FBX and texture files, and generating the
 `settings.json` files required for shared textures.
 
+[Download the latest release](https://github.com/Macwelshman/CS2-Settings-Generator/releases/latest)
+or read the [User Guide](docs/USER_GUIDE.md).
+
 ## Workflow
 
 1. Drag or choose an overall export folder.
