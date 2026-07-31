@@ -1,5 +1,7 @@
 use crate::fbx::{classify_fbx, inspect_fbx};
-use crate::model::{AssetScan, FbxFile, FbxKind, Issue, ScanResult, TextureSet, TextureTier};
+use crate::model::{
+    AssetScan, FbxFile, FbxKind, Issue, ScanResult, TextureSet, TextureSetOverride, TextureTier,
+};
 use crate::settings::build_settings_preview;
 use crate::texture::collect_texture_sets;
 use std::collections::{BTreeMap, BTreeSet};
@@ -31,6 +33,13 @@ impl Display for ScanError {
 impl Error for ScanError {}
 
 pub fn scan_export_folder(root: &Path) -> Result<ScanResult, ScanError> {
+    scan_export_folder_with_overrides(root, &[])
+}
+
+pub fn scan_export_folder_with_overrides(
+    root: &Path,
+    texture_overrides: &[TextureSetOverride],
+) -> Result<ScanResult, ScanError> {
     let root = fs::canonicalize(root).map_err(|error| {
         ScanError::new(format!(
             "Could not open export folder {}: {error}",
@@ -142,6 +151,9 @@ pub fn scan_export_folder(root: &Path) -> Result<ScanResult, ScanError> {
             &folder,
             main_material.as_deref(),
             &texture_sets,
+            texture_overrides
+                .iter()
+                .find(|texture_override| texture_override.asset_folder == folder),
             &mut issues,
         );
         let lod2_texture_set = resolve_lod2_texture_set(
@@ -178,6 +190,7 @@ pub fn scan_export_folder(root: &Path) -> Result<ScanResult, ScanError> {
     Ok(ScanResult {
         root,
         assets,
+        texture_sets,
         global_issues,
     })
 }
@@ -187,8 +200,27 @@ fn resolve_main_texture_set(
     asset_folder: &Path,
     material_name: Option<&str>,
     texture_sets: &[TextureSet],
+    texture_override: Option<&TextureSetOverride>,
     issues: &mut Vec<Issue>,
 ) -> Option<TextureSet> {
+    if let Some(texture_override) = texture_override {
+        if let Some(texture_set) = texture_sets.iter().find(|texture_set| {
+            texture_set.tier == TextureTier::Main
+                && texture_set.folder == texture_override.texture_set_folder
+                && texture_set.name == texture_override.texture_set_name
+        }) {
+            return Some(texture_set.clone());
+        }
+        issues.push(Issue::warning(
+            "mainTextureOverrideUnavailable",
+            format!(
+                "The selected texture set “{}” is no longer available; automatic resolution was used instead.",
+                texture_override.texture_set_name
+            ),
+            asset_folder,
+        ));
+    }
+
     let local = matching_sets(texture_sets, asset_name, TextureTier::Main)
         .into_iter()
         .filter(|set| set.folder == asset_folder)
@@ -274,4 +306,68 @@ fn matching_sets(texture_sets: &[TextureSet], name: &str, tier: TextureTier) -> 
         .filter(|set| set.name == name && set.tier == tier)
         .cloned()
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn explicit_override_selects_a_different_shared_texture_set() {
+        let asset_folder = PathBuf::from("/export/SDNH Ambulance Sign");
+        let sign_folder = PathBuf::from("/export/SDNH Sign");
+        let texture_sets = vec![texture_set("SDNH Sign", &sign_folder)];
+        let texture_override = TextureSetOverride {
+            asset_folder: asset_folder.clone(),
+            texture_set_folder: sign_folder,
+            texture_set_name: "SDNH Sign".into(),
+        };
+        let mut issues = Vec::new();
+
+        let resolved = resolve_main_texture_set(
+            "SDNH Ambulance Sign",
+            &asset_folder,
+            Some("SDNH Signs"),
+            &texture_sets,
+            Some(&texture_override),
+            &mut issues,
+        )
+        .expect("manual override should resolve");
+
+        assert_eq!(resolved.name, "SDNH Sign");
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn local_asset_textures_win_before_material_matching() {
+        let crematorium_folder = PathBuf::from("/export/San Diego Crematorium");
+        let hospital_folder = PathBuf::from("/export/San Diego Naval Hospital");
+        let texture_sets = vec![
+            texture_set("San Diego Crematorium", &crematorium_folder),
+            texture_set("San Diego Naval Hospital", &hospital_folder),
+        ];
+        let mut issues = Vec::new();
+
+        let resolved = resolve_main_texture_set(
+            "San Diego Crematorium",
+            &crematorium_folder,
+            Some("San Diego Naval Hospital"),
+            &texture_sets,
+            None,
+            &mut issues,
+        )
+        .expect("local texture set should resolve");
+
+        assert_eq!(resolved.name, "San Diego Crematorium");
+        assert!(issues.is_empty());
+    }
+
+    fn texture_set(name: &str, folder: &Path) -> TextureSet {
+        TextureSet {
+            name: name.into(),
+            tier: TextureTier::Main,
+            folder: folder.into(),
+            files: Vec::new(),
+        }
+    }
 }

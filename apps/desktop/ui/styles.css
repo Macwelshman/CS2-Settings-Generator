@@ -31,7 +31,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -426,6 +427,111 @@ input {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.texture-grid-secondary {
+  margin-top: 8px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.texture-editor {
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #151b23;
+}
+
+.texture-editor-heading,
+.texture-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.texture-editor-heading strong {
+  font-size: 12px;
+}
+
+.texture-select-label {
+  display: block;
+  margin: 11px 0 5px;
+  color: #cbd6e2;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.texture-select {
+  width: 100%;
+  height: 32px;
+  border: 1px solid #425063;
+  border-radius: 7px;
+  padding: 0 30px 0 9px;
+  color: #edf4fb;
+  background: #202936;
+  font-size: 11px;
+}
+
+.texture-select:focus {
+  border-color: var(--blue);
+  outline: 2px solid rgb(80 168 255 / 18%);
+}
+
+.texture-source-status {
+  margin-top: 8px;
+  padding: 8px 9px;
+  border: 1px solid rgb(85 214 163 / 22%);
+  border-radius: 7px;
+  background: rgb(38 100 77 / 10%);
+}
+
+.texture-source-status.is-unresolved {
+  border-color: rgb(255 120 134 / 25%);
+  background: rgb(104 27 39 / 14%);
+}
+
+.texture-source-status strong,
+.texture-source-status span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.texture-source-status strong {
+  color: var(--green);
+  font-size: 11px;
+}
+
+.texture-source-status.is-unresolved strong {
+  color: var(--red);
+}
+
+.texture-source-status span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.texture-editor-actions {
+  align-items: flex-end;
+  margin-top: 9px;
+}
+
+.texture-editor-actions p {
+  max-width: 52%;
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.texture-editor-actions .button {
+  max-width: 48%;
+  min-height: 30px;
+  height: auto;
+  padding: 5px 10px;
+  line-height: 1.25;
 }
 
 .texture-card {

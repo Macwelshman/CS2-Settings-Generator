@@ -9,7 +9,7 @@ mod write;
 pub use model::{
     AssetScan, FbxFile, FbxKind, GenerationAction, GenerationItem, GenerationReport, Issue,
     IssueSeverity, ScanResult, SettingsPreview, SharedAssetEntry, TextureFile, TextureKind,
-    TextureSet,
+    TextureSet, TextureSetOverride, TextureTier,
 };
-pub use scan::{ScanError, scan_export_folder};
-pub use write::generate_settings_files;
+pub use scan::{ScanError, scan_export_folder, scan_export_folder_with_overrides};
+pub use write::{generate_settings_files, generate_settings_files_with_overrides};
