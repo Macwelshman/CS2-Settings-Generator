@@ -4,12 +4,17 @@ Cross-platform macOS and Windows utility for scanning a Cities: Skylines II
 asset export folder, validating its FBX and texture files, and generating the
 `settings.json` files required for shared textures.
 
+[Download the latest release](https://github.com/Macwelshman/CS2-Settings-Generator/releases/latest)
+or read the [User Guide](docs/USER_GUIDE.md).
+
 ## Workflow
 
 1. Drag or choose an overall export folder.
 2. Scan asset folders recursively.
 3. Review detected main, LOD, sub-mesh, material, and texture relationships.
-4. Resolve warnings or ambiguous shared-texture matches.
+4. Resolve warnings or ambiguous shared-texture matches with the per-asset
+   **Main + LOD1 texture set** selector. A selection can be applied to other
+   non-local assets using the same FBX material.
 5. Preview and generate each asset folder's `settings.json`.
 
 ## Core generation rules
@@ -30,6 +35,9 @@ The scanner will report import-readiness warnings alongside settings generation:
 - `_Win`, `_Wim`, `_Gls`, `_Gra`, and `_Wat` sub-meshes must contain no material.
 - A material may be shared by differently named meshes; its name is used to
   resolve the correct texture provider, not compared with the mesh filename.
+- An explicit per-asset texture selection overrides automatic resolution.
+  Material-wide application never replaces an asset's own local, asset-named
+  texture set.
 - Texture names, formats, dimensions, and supported CS2 suffixes are checked.
 - Ambiguous texture sets and unrecognised FBX suffixes require review.
 

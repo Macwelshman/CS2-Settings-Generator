@@ -5,6 +5,7 @@ const state = {
   root: null,
   scan: null,
   selectedIndex: 0,
+  textureOverrides: new Map(),
   busy: false,
 };
 
@@ -52,7 +53,7 @@ async function initializeDragDrop() {
       } else if (event.payload.type === "drop") {
         elements.dropZone.classList.remove("is-dragging");
         const folder = event.payload.paths?.[0];
-        if (folder) scanFolder(folder);
+        if (folder) scanFolder(folder, true);
       }
     });
   } catch (error) {
@@ -63,17 +64,27 @@ async function initializeDragDrop() {
 async function chooseFolder() {
   if (!invoke || state.busy) return;
   const folder = await invoke("choose_export_folder");
-  if (folder) await scanFolder(folder);
+  if (folder) await scanFolder(folder, true);
 }
 
-async function scanFolder(folder) {
+async function scanFolder(folder, resetOverrides = false) {
   if (!invoke || state.busy) return;
+  const selectedFolder = state.scan?.assets[state.selectedIndex]?.folder;
+  if (resetOverrides) state.textureOverrides.clear();
   setBusy(true, "Scanning FBX and texture files…");
   try {
-    const scan = await invoke("scan_export_folder", { path: folder });
+    const scan = await invoke("scan_export_folder", {
+      path: folder,
+      textureOverrides: serializedTextureOverrides(),
+    });
     state.root = scan.root;
     state.scan = scan;
-    state.selectedIndex = 0;
+    const validFolders = new Set(scan.assets.map((asset) => asset.folder));
+    for (const assetFolder of state.textureOverrides.keys()) {
+      if (!validFolders.has(assetFolder)) state.textureOverrides.delete(assetFolder);
+    }
+    const preservedIndex = scan.assets.findIndex((asset) => asset.folder === selectedFolder);
+    state.selectedIndex = preservedIndex >= 0 ? preservedIndex : 0;
     render();
   } catch (error) {
     showToast(String(error));
@@ -90,6 +101,7 @@ async function generateSettings() {
     const report = await invoke("generate_settings", {
       path: state.root,
       replaceExisting,
+      textureOverrides: serializedTextureOverrides(),
     });
     const counts = report.items.reduce((result, item) => {
       result[item.action] = (result[item.action] || 0) + 1;
@@ -118,6 +130,7 @@ function clearScan() {
   state.root = null;
   state.scan = null;
   state.selectedIndex = 0;
+  state.textureOverrides.clear();
   elements.replaceExisting.checked = false;
   elements.workspace.classList.add("is-hidden");
   elements.dropZone.classList.remove("is-hidden", "is-dragging");
@@ -240,8 +253,8 @@ function renderAssetDetail() {
     </table>
 
     <h3 class="section-title">Texture sources</h3>
-    <div class="texture-grid">
-      ${textureCard("Main + LOD1", asset.mainTextureSet)}
+    ${mainTextureEditor(asset)}
+    <div class="texture-grid texture-grid-secondary">
       ${textureCard("LOD2", asset.lod2TextureSet)}
     </div>
 
@@ -251,6 +264,8 @@ function renderAssetDetail() {
     <h3 class="section-title">settings.json preview</h3>
     <pre class="json-preview">${escapeHtml(asset.settings.json)}</pre>
   `;
+
+  bindTextureSourceControls(asset);
 }
 
 function assetRow(asset, index) {
@@ -281,6 +296,147 @@ function textureCard(label, textureSet) {
       <strong>${label}: ${escapeHtml(textureSet.name)}</strong>
       <span>${textureSet.files.length} maps · ${escapeHtml(textureSet.folder)}</span>
     </div>`;
+}
+
+function mainTextureEditor(asset) {
+  const material = mainMaterialForAsset(asset);
+  const textureSets = (state.scan?.textureSets ?? [])
+    .map((textureSet, index) => ({ textureSet, index }))
+    .filter(({ textureSet }) => textureSet.tier === "main");
+  const textureOverride = state.textureOverrides.get(asset.folder);
+  const selectedIndex = textureOverride
+    ? textureSets.find(
+        ({ textureSet }) =>
+          textureSet.folder === textureOverride.textureSetFolder &&
+          textureSet.name === textureOverride.textureSetName,
+      )?.index
+    : undefined;
+  const automaticLabel = "Automatic detection";
+  const options = textureSets
+    .map(({ textureSet, index }) => {
+      const folder = relativeDisplayPath(state.scan.root, textureSet.folder);
+      return `<option value="${index}" ${index === selectedIndex ? "selected" : ""}>${escapeHtml(`${textureSet.name} — ${folder}`)}</option>`;
+    })
+    .join("");
+  const applyTargets = materialApplyTargets(asset, material, asset.mainTextureSet);
+  const sourceMode = textureOverride ? "Manual selection" : "Automatic";
+  const sourceDetails = asset.mainTextureSet
+    ? `${asset.mainTextureSet.files.length} maps · ${asset.mainTextureSet.folder}`
+    : "No texture set is currently available for the main mesh and LOD1.";
+  const applyLabel = !material
+    ? "No main material available"
+    : !asset.mainTextureSet
+      ? "Select a texture set before applying by material"
+      : applyTargets.length
+        ? `Apply to ${applyTargets.length} other asset${applyTargets.length === 1 ? "" : "s"} using “${material}”`
+        : `All eligible assets using “${material}” already match`;
+
+  return `
+    <div class="texture-editor">
+      <div class="texture-editor-heading">
+        <div>
+          <span class="label">FBX material</span>
+          <strong>${escapeHtml(material || "No material")}</strong>
+        </div>
+        <span class="badge ${textureOverride ? "badge-warning" : "badge-good"}">${sourceMode}</span>
+      </div>
+      <label class="texture-select-label" for="main-texture-set">Main + LOD1 texture set</label>
+      <select id="main-texture-set" class="texture-select">
+        <option value="" ${selectedIndex === undefined ? "selected" : ""}>${escapeHtml(automaticLabel)}</option>
+        ${options}
+      </select>
+      <div class="texture-source-status ${asset.mainTextureSet ? "" : "is-unresolved"}">
+        <strong>${escapeHtml(asset.mainTextureSet?.name || "Not resolved")}</strong>
+        <span>${escapeHtml(sourceDetails)}</span>
+      </div>
+      <div class="texture-editor-actions">
+        <p>Local asset-named textures take priority automatically. Manual choices affect only this scan and generation run.</p>
+        <button id="apply-texture-by-material" class="button button-quiet" ${applyTargets.length ? "" : "disabled"}>
+          ${escapeHtml(applyLabel)}
+        </button>
+      </div>
+    </div>`;
+}
+
+function bindTextureSourceControls(asset) {
+  const select = elements.assetDetail.querySelector("#main-texture-set");
+  select?.addEventListener("change", async () => {
+    if (state.busy) return;
+    if (select.value === "") {
+      state.textureOverrides.delete(asset.folder);
+    } else {
+      const textureSet = state.scan.textureSets[Number(select.value)];
+      if (!textureSet) return;
+      state.textureOverrides.set(asset.folder, textureOverrideFor(asset, textureSet));
+    }
+    await scanFolder(state.root);
+  });
+
+  const applyButton = elements.assetDetail.querySelector("#apply-texture-by-material");
+  applyButton?.addEventListener("click", async () => {
+    if (state.busy || !asset.mainTextureSet) return;
+    const material = mainMaterialForAsset(asset);
+    const targets = materialApplyTargets(asset, material, asset.mainTextureSet);
+    for (const target of targets) {
+      state.textureOverrides.set(
+        target.folder,
+        textureOverrideFor(target, asset.mainTextureSet),
+      );
+    }
+    await scanFolder(state.root);
+    showToast(
+      `Applied ${asset.mainTextureSet.name} to ${targets.length} asset${targets.length === 1 ? "" : "s"} using ${material}.`,
+    );
+  });
+}
+
+function textureOverrideFor(asset, textureSet) {
+  return {
+    assetFolder: asset.folder,
+    textureSetFolder: textureSet.folder,
+    textureSetName: textureSet.name,
+  };
+}
+
+function serializedTextureOverrides() {
+  return [...state.textureOverrides.values()];
+}
+
+function mainMaterialForAsset(asset) {
+  return asset.files.find((file) => file.kind === "main")?.materialNames?.[0] ?? null;
+}
+
+function materialApplyTargets(asset, material, textureSet) {
+  if (!material || !textureSet || !state.scan) return [];
+  return state.scan.assets.filter((candidate) => {
+    if (candidate.folder === asset.folder) return false;
+    if (mainMaterialForAsset(candidate) !== material) return false;
+    if (isLocalExactTextureSet(candidate)) return false;
+    if (
+      candidate.mainTextureSet?.folder === textureSet.folder &&
+      candidate.mainTextureSet?.name === textureSet.name
+    ) {
+      return false;
+    }
+    const currentOverride = state.textureOverrides.get(candidate.folder);
+    return !(
+      currentOverride?.textureSetFolder === textureSet.folder &&
+      currentOverride?.textureSetName === textureSet.name
+    );
+  });
+}
+
+function isLocalExactTextureSet(asset) {
+  return (
+    asset.mainTextureSet?.folder === asset.folder &&
+    asset.mainTextureSet?.name === asset.name
+  );
+}
+
+function relativeDisplayPath(root, folder) {
+  if (!root || !folder.startsWith(root)) return folder;
+  const relative = folder.slice(root.length).replace(/^[/\\]+/, "");
+  return relative || ".";
 }
 
 function summaryCard(value, label, status = "") {

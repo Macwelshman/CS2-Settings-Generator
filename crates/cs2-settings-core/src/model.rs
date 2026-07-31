@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Clone, Debug, Serialize)]
@@ -6,7 +6,16 @@ use std::path::PathBuf;
 pub struct ScanResult {
     pub root: PathBuf,
     pub assets: Vec<AssetScan>,
+    pub texture_sets: Vec<TextureSet>,
     pub global_issues: Vec<Issue>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextureSetOverride {
+    pub asset_folder: PathBuf,
+    pub texture_set_folder: PathBuf,
+    pub texture_set_name: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
