@@ -122,6 +122,7 @@ until its texture relationship can be resolved safely.
 
 The app checks that:
 
+- each FBX contains one mesh object whose name matches the FBX filename;
 - main and LOD1 FBX files have one material;
 - LOD2 and shader sub-meshes such as `_Win`, `_Wim`, `_Gls`, `_Gra`, and `_Wat`
   have no material;
@@ -172,6 +173,12 @@ assets.
 
 Remove the material from shader sub-mesh FBX files such as `_Win`. These meshes
 should not contain materials.
+
+### An FBX reports a mesh object name warning
+
+In your 3D software, rename the mesh object to exactly match the FBX filename
+without the `.fbx` extension, then export the FBX again. For example,
+`Station_LOD1.fbx` must contain one mesh object named `Station_LOD1`.
 
 ### Existing settings files were preserved
 

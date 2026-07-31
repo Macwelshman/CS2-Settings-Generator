@@ -30,6 +30,7 @@ or read the [User Guide](docs/USER_GUIDE.md).
 
 The scanner will report import-readiness warnings alongside settings generation:
 
+- Each FBX must contain one mesh object named exactly like the FBX file stem.
 - Main and LOD1 meshes should contain exactly one material.
 - LOD2 is optional; when present, its mesh should contain no materials.
 - `_Win`, `_Wim`, `_Gls`, `_Gra`, and `_Wat` sub-meshes must contain no material.
@@ -43,18 +44,40 @@ The scanner will report import-readiness warnings alongside settings generation:
 
 ## Build and package
 
+All local builds intended for testing or installation are collected in the
+top-level [`Builds`](Builds) folder.
+
+Build the latest test app without launching it:
+
+```sh
+./script/build_and_run.sh --build-only
+```
+
+Build and launch the latest test app:
+
+```sh
+./script/build_and_run.sh
+```
+
 Run all cross-platform core tests:
 
 ```sh
 cargo test --workspace
 ```
 
-Build the macOS app locally:
+Build the macOS release DMG:
 
 ```sh
-cargo tauri build --bundles app
+./script/build_release.sh
+```
+
+On Windows, build the `.exe` and `.msi` installers into the same `Builds`
+folder from PowerShell:
+
+```powershell
+.\script\build_release_windows.ps1
 ```
 
 The GitHub Actions workflow tests every push and pull request on macOS and
 Windows. Its manual `workflow_dispatch` action also creates downloadable
-macOS and Windows bundle artifacts.
+macOS and Windows artifacts collected from a `Builds` folder on each runner.

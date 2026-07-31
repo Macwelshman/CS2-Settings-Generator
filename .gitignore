@@ -12,6 +12,10 @@ node_modules/
 dist/
 apps/desktop/dist/
 
+# Easy-to-find local app and installer builds
+Builds/*
+!Builds/README.md
+
 # Local IDE and environment files
 .idea/
 .vscode/

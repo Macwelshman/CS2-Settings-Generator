@@ -51,7 +51,7 @@ pub fn inspect_fbx(path: &Path, kind: FbxKind) -> (FbxFile, Vec<Issue>) {
                     .flat_map(|mesh| mesh.element.instances.iter())
                 {
                     let name = node.element.name.as_ref();
-                    if !name.is_empty() && !meshes.iter().any(|existing| existing == name) {
+                    if !name.is_empty() {
                         meshes.push(name.to_owned());
                     }
                 }
@@ -101,24 +101,7 @@ pub fn inspect_fbx(path: &Path, kind: FbxKind) -> (FbxFile, Vec<Issue>) {
             ));
         }
 
-        let expected_stem = path
-            .file_stem()
-            .map(|stem| stem.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        if mesh_names.len() != 1 || mesh_names.first() != Some(&expected_stem) {
-            issues.push(Issue::warning(
-                "meshNameMismatch",
-                format!(
-                    "The FBX should contain one mesh object named “{expected_stem}”; found: {}.",
-                    if mesh_names.is_empty() {
-                        "none".into()
-                    } else {
-                        mesh_names.join(", ")
-                    }
-                ),
-                path,
-            ));
-        }
+        validate_mesh_name(path, &mesh_names, &mut issues);
     }
 
     (
@@ -131,6 +114,28 @@ pub fn inspect_fbx(path: &Path, kind: FbxKind) -> (FbxFile, Vec<Issue>) {
         },
         issues,
     )
+}
+
+fn validate_mesh_name(path: &Path, mesh_names: &[String], issues: &mut Vec<Issue>) {
+    let expected_stem = path
+        .file_stem()
+        .map(|stem| stem.to_string_lossy().into_owned())
+        .unwrap_or_default();
+
+    if mesh_names.len() != 1 || mesh_names.first() != Some(&expected_stem) {
+        issues.push(Issue::warning(
+            "meshNameMismatch",
+            format!(
+                "CS2 requires the FBX filename and its single mesh object name to match. Expected “{expected_stem}”; found: {}.",
+                if mesh_names.is_empty() {
+                    "none".into()
+                } else {
+                    mesh_names.join(", ")
+                }
+            ),
+            path,
+        ));
+    }
 }
 
 #[cfg(test)]
@@ -154,5 +159,44 @@ mod tests {
         assert!(FbxKind::Lod2.requires_no_material());
         assert!(FbxKind::Window.requires_no_material());
         assert!(FbxKind::Lod2Window.requires_no_material());
+    }
+
+    #[test]
+    fn matching_mesh_object_name_passes_validation() {
+        let mut issues = Vec::new();
+
+        validate_mesh_name(
+            Path::new("House_LOD1.fbx"),
+            &["House_LOD1".into()],
+            &mut issues,
+        );
+
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn mismatched_mesh_object_name_reports_expected_and_actual_names() {
+        let mut issues = Vec::new();
+
+        validate_mesh_name(Path::new("House_LOD1.fbx"), &["House".into()], &mut issues);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "meshNameMismatch");
+        assert!(issues[0].message.contains("Expected “House_LOD1”"));
+        assert!(issues[0].message.contains("found: House"));
+    }
+
+    #[test]
+    fn multiple_mesh_objects_report_a_warning_even_when_names_match() {
+        let mut issues = Vec::new();
+
+        validate_mesh_name(
+            Path::new("House.fbx"),
+            &["House".into(), "House".into()],
+            &mut issues,
+        );
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "meshNameMismatch");
     }
 }

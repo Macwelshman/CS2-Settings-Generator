@@ -43,8 +43,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: apps/desktop/src-tauri
+      - name: Collect macOS builds
+        if: runner.os == 'macOS'
+        run: ./script/build_release.sh --collect-only
+      - name: Collect Windows builds
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./script/build_release_windows.ps1 -CollectOnly
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
-          path: target/release/bundle
+          path: Builds
           if-no-files-found: error

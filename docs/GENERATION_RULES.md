@@ -34,6 +34,10 @@ Main and LOD1 meshes should contain exactly one material. LOD2 meshes and shader
 sub-meshes must contain no materials. These checks produce warnings and do not
 by themselves prevent settings generation.
 
+Every FBX should contain exactly one mesh object, and that object's name must
+match the FBX filename without the `.fbx` extension. A mismatch produces an
+import-readiness warning and does not modify the source FBX.
+
 LOD2 is optional because smaller assets such as props and decals may not require
 one. Its absence is not a warning; when an LOD2 FBX is present, its material and
 texture rules are validated normally.
