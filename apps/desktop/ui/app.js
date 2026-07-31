@@ -16,6 +16,7 @@ const elements = {
     document.querySelector("#choose-folder-empty"),
   ],
   folderPath: document.querySelector("#folder-path"),
+  clearScan: document.querySelector("#clear-scan"),
   rescan: document.querySelector("#rescan"),
   summary: document.querySelector("#summary"),
   assetCount: document.querySelector("#asset-count"),
@@ -31,6 +32,7 @@ for (const button of elements.chooseButtons) {
   button.addEventListener("click", chooseFolder);
 }
 elements.rescan.addEventListener("click", () => state.root && scanFolder(state.root));
+elements.clearScan.addEventListener("click", clearScan);
 elements.generate.addEventListener("click", generateSettings);
 
 initializeDragDrop();
@@ -111,9 +113,27 @@ async function generateSettings() {
   }
 }
 
+function clearScan() {
+  if (state.busy) return;
+  state.root = null;
+  state.scan = null;
+  state.selectedIndex = 0;
+  elements.replaceExisting.checked = false;
+  elements.workspace.classList.add("is-hidden");
+  elements.dropZone.classList.remove("is-hidden", "is-dragging");
+  elements.folderPath.textContent = "";
+  elements.summary.replaceChildren();
+  elements.assetList.replaceChildren();
+  elements.assetDetail.replaceChildren();
+  elements.assetCount.textContent = "";
+  elements.generationNote.textContent = "";
+  elements.generate.disabled = true;
+}
+
 function setBusy(busy, note = "") {
   state.busy = busy;
   elements.chooseButtons.forEach((button) => (button.disabled = busy));
+  elements.clearScan.disabled = busy;
   elements.rescan.disabled = busy;
   elements.generate.disabled = busy || !state.scan;
   elements.generationNote.textContent = note;

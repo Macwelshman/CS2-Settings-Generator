@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "CS2 Settings Generator",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "identifier": "com.macwelshman.cs2-settings-generator",
   "build": {
     "frontendDist": "../ui"
@@ -11,10 +11,10 @@
     "windows": [
       {
         "title": "CS2 Settings Generator",
-        "width": 1180,
-        "height": 760,
-        "minWidth": 900,
-        "minHeight": 600,
+        "width": 1080,
+        "height": 700,
+        "minWidth": 820,
+        "minHeight": 560,
         "center": true,
         "dragDropEnabled": true
       }
