@@ -148,3 +148,11 @@ folder from PowerShell:
 The GitHub Actions workflow tests every push and pull request on macOS and
 Windows. Its manual `workflow_dispatch` action also creates downloadable
 macOS and Windows artifacts collected from a `Builds` folder on each runner.
+
+## Disclaimer
+
+This is an independent community tool and is not affiliated with or endorsed
+by Iceflake Studios or Paradox Interactive.
+
+Cities: Skylines II and related names and trademarks belong to their respective
+owners.

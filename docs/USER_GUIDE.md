@@ -1,7 +1,7 @@
 # CS2 Settings Generator User Guide
 
 <p align="center">
-  <img src="../apps/desktop/icon-source.png" width="144" alt="CS2 Settings Generator icon">
+  <img src="../apps/desktop/src-tauri/icons/icon.png" width="144" alt="CS2 Settings Generator icon">
 </p>
 
 CS2 Settings Generator scans a complete Cities: Skylines II asset export,
