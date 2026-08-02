@@ -1,7 +1,7 @@
 # CS2 Settings Generator User Guide
 
 <p align="center">
-  <img src="../apps/desktop/icon-source.png" width="144" alt="CS2 Settings Generator icon">
+  <img src="../apps/desktop/src-tauri/icons/icon.png" width="144" alt="CS2 Settings Generator icon">
 </p>
 
 CS2 Settings Generator scans a complete Cities: Skylines II asset export,
@@ -122,9 +122,7 @@ until its texture relationship can be resolved safely.
 
 The app checks that:
 
-- main and LOD1 FBX files have one material;
-- LOD2 and shader sub-meshes such as `_Win`, `_Wim`, `_Gls`, `_Gra`, and `_Wat`
-  have no material;
+- each FBX contains one mesh object whose name matches the FBX filename;
 - texture filenames and recognised suffixes are valid;
 - every proposed shared-texture destination exists;
 - ambiguous texture providers are not guessed silently.
@@ -168,10 +166,11 @@ Select the asset and choose the intended **Main + LOD1 texture set**. If several
 assets use the same FBX material, apply that choice to the other eligible
 assets.
 
-### A special sub-mesh reports a material warning
+### An FBX reports a mesh object name warning
 
-Remove the material from shader sub-mesh FBX files such as `_Win`. These meshes
-should not contain materials.
+In your 3D software, rename the mesh object to exactly match the FBX filename
+without the `.fbx` extension, then export the FBX again. For example,
+`Station_LOD1.fbx` must contain one mesh object named `Station_LOD1`.
 
 ### Existing settings files were preserved
 

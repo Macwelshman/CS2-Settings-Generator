@@ -215,6 +215,7 @@ function renderAssetDetail() {
         <tr>
           <td class="file-name">${escapeHtml(file.path.split(/[\\/]/).pop())}</td>
           <td>${escapeHtml(formatKind(file.kind))}</td>
+          <td>${escapeHtml(file.meshNames.join(", ") || "No mesh object")}</td>
           <td>${escapeHtml(file.materialNames.join(", ") || "No material")}</td>
         </tr>`,
     )
@@ -248,7 +249,7 @@ function renderAssetDetail() {
 
     <h3 class="section-title">FBX files</h3>
     <table class="file-table">
-      <thead><tr><th>File</th><th>Type</th><th>Materials</th></tr></thead>
+      <thead><tr><th>File</th><th>Type</th><th>Mesh object</th><th>Materials</th></tr></thead>
       <tbody>${fileRows}</tbody>
     </table>
 

@@ -4,6 +4,16 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      package_platform:
+        description: Package platform
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - macos
+          - windows
 
 permissions:
   contents: read
@@ -30,8 +40,10 @@ jobs:
       matrix:
         include:
           - os: macos-latest
+            platform: macos
             artifact: CS2-Settings-Generator-macOS
           - os: windows-latest
+            platform: windows
             artifact: CS2-Settings-Generator-Windows
     runs-on: ${{ matrix.os }}
     steps:
@@ -39,12 +51,21 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: tauri-apps/tauri-action@v0
+        if: inputs.package_platform == 'all' || inputs.package_platform == matrix.platform
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: apps/desktop/src-tauri
+      - name: Collect macOS builds
+        if: (inputs.package_platform == 'all' || inputs.package_platform == matrix.platform) && runner.os == 'macOS'
+        run: ./script/build_release.sh --collect-only
+      - name: Collect Windows builds
+        if: (inputs.package_platform == 'all' || inputs.package_platform == matrix.platform) && runner.os == 'Windows'
+        shell: pwsh
+        run: ./script/build_release_windows.ps1 -CollectOnly
       - uses: actions/upload-artifact@v7
+        if: inputs.package_platform == 'all' || inputs.package_platform == matrix.platform
         with:
           name: ${{ matrix.artifact }}
-          path: target/release/bundle
+          path: Builds
           if-no-files-found: error

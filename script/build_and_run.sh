@@ -7,7 +7,7 @@ PROCESS_NAME="cs2-settings-generator"
 BUNDLE_ID="com.macwelshman.cs2-settings-generator"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DIST_DIR="$ROOT_DIR/apps/desktop/dist"
+DIST_DIR="$ROOT_DIR/Builds"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
@@ -35,6 +35,9 @@ case "$MODE" in
   run)
     open_app
     ;;
+  --build-only|build-only)
+    echo "Test build ready: $APP_BUNDLE"
+    ;;
   --debug|debug)
     lldb -- "$APP_BINARY"
     ;;
@@ -58,8 +61,7 @@ case "$MODE" in
     exit 1
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify]" >&2
+    echo "usage: $0 [run|--build-only|--debug|--logs|--telemetry|--verify]" >&2
     exit 2
     ;;
 esac
-

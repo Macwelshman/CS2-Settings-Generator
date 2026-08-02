@@ -40,7 +40,11 @@
       }
     },
     "macOS": {
-      "signingIdentity": "-"
+      "signingIdentity": "-",
+      "files": {
+        "Resources/Assets.car": "icons/macos-compiled/Assets.car",
+        "Resources/CS2Settings.icns": "icons/macos-compiled/CS2Settings.icns"
+      }
     },
     "category": "DeveloperTool",
     "shortDescription": "Generate CS2 shared-texture settings files",

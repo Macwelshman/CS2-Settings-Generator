@@ -90,14 +90,6 @@ pub enum FbxKind {
 }
 
 impl FbxKind {
-    pub fn requires_one_material(self) -> bool {
-        matches!(self, Self::Main | Self::Lod1)
-    }
-
-    pub fn requires_no_material(self) -> bool {
-        !self.requires_one_material()
-    }
-
     pub fn is_lod1(self) -> bool {
         matches!(self, Self::Lod1)
     }
