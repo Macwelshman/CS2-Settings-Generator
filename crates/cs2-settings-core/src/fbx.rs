@@ -73,34 +73,6 @@ pub fn inspect_fbx(path: &Path, kind: FbxKind) -> (FbxFile, Vec<Issue>) {
         };
 
     if parse_error.is_none() {
-        if kind.requires_one_material() {
-            match material_names.len() {
-                0 => issues.push(Issue::warning(
-                    "materialMissing",
-                    "Main and LOD1 meshes should contain exactly one material; none were found.",
-                    path,
-                )),
-                1 => {}
-                count => issues.push(Issue::warning(
-                    "multipleMaterials",
-                    format!(
-                        "Main and LOD1 meshes support exactly one material; {count} were found: {}.",
-                        material_names.join(", ")
-                    ),
-                    path,
-                )),
-            }
-        } else if kind.requires_no_material() && !material_names.is_empty() {
-            issues.push(Issue::warning(
-                "materialNotAllowed",
-                format!(
-                    "LOD2 and shader sub-mesh FBXs must contain no materials; found: {}.",
-                    material_names.join(", ")
-                ),
-                path,
-            ));
-        }
-
         validate_mesh_name(path, &mesh_names, &mut issues);
     }
 
@@ -150,15 +122,6 @@ mod tests {
         );
         assert_eq!(classify_fbx("House_LOD1"), ("House", FbxKind::Lod1));
         assert_eq!(classify_fbx("House"), ("House", FbxKind::Main));
-    }
-
-    #[test]
-    fn lod2_and_shader_meshes_require_no_materials() {
-        assert!(FbxKind::Main.requires_one_material());
-        assert!(FbxKind::Lod1.requires_one_material());
-        assert!(FbxKind::Lod2.requires_no_material());
-        assert!(FbxKind::Window.requires_no_material());
-        assert!(FbxKind::Lod2Window.requires_no_material());
     }
 
     #[test]

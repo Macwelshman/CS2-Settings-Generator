@@ -30,21 +30,19 @@ Recognised shader sub-mesh suffixes:
 
 The same suffixes are recognised after `_LOD1` and `_LOD2`.
 
-Main and LOD1 meshes should contain exactly one material. LOD2 meshes and shader
-sub-meshes must contain no materials. These checks produce warnings and do not
-by themselves prevent settings generation.
-
 Every FBX should contain exactly one mesh object, and that object's name must
 match the FBX filename without the `.fbx` extension. A mismatch produces an
 import-readiness warning and does not modify the source FBX.
 
 LOD2 is optional because smaller assets such as props and decals may not require
-one. Its absence is not a warning; when an LOD2 FBX is present, its material and
-texture rules are validated normally.
+one. Its absence is not a warning; when an LOD2 FBX is present, its texture rules
+are validated normally.
 
-The material name does not need to match the FBX or mesh name. It identifies
-the texture provider, so multiple differently named meshes can correctly use a
-shared material such as `Belfort Van Ghent` or `Belfort Van Ghent Details`.
+Material names are read only to help identify texture providers. The app does
+not validate whether an FBX has a material, how many materials it has, or which
+FBX variants contain them. A material name does not need to match the FBX or
+mesh name, and multiple differently named meshes can correctly use a shared
+material such as `Belfort Van Ghent` or `Belfort Van Ghent Details`.
 
 ## Texture recognition
 

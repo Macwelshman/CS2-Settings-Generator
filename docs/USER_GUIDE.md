@@ -123,9 +123,6 @@ until its texture relationship can be resolved safely.
 The app checks that:
 
 - each FBX contains one mesh object whose name matches the FBX filename;
-- main and LOD1 FBX files have one material;
-- LOD2 and shader sub-meshes such as `_Win`, `_Wim`, `_Gls`, `_Gra`, and `_Wat`
-  have no material;
 - texture filenames and recognised suffixes are valid;
 - every proposed shared-texture destination exists;
 - ambiguous texture providers are not guessed silently.
@@ -168,11 +165,6 @@ Each generated file is written inside its asset folder:
 Select the asset and choose the intended **Main + LOD1 texture set**. If several
 assets use the same FBX material, apply that choice to the other eligible
 assets.
-
-### A special sub-mesh reports a material warning
-
-Remove the material from shader sub-mesh FBX files such as `_Win`. These meshes
-should not contain materials.
 
 ### An FBX reports a mesh object name warning
 
