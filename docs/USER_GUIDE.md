@@ -253,3 +253,13 @@ reviewing the preview and deciding that the existing files should be replaced.
 
 At least one scanned asset must be ready. Select assets showing errors, resolve
 their texture sources, and review any invalid FBX or filename warnings.
+
+## Software updates
+
+The app checks for a newer stable version when it opens. You can also select **Check for Updates…** in the toolbar (or the application menu on Mac).
+
+When an update is available, select **Update Now** to download, verify and install it, **View Release** to read the release page, or **Later** to dismiss the notice for this session. Updating restarts the app: finish generating any pending settings first. Your export files are not changed by the updater.
+
+If the release has no compatible update package, use **View Release** to download its normal installer. Install the app in a writable location; Mac users should move it out of the downloaded disk image before updating.
+
+Older versions without this utility need one manual installation of the first updater-enabled release. See [Software update packaging and recovery](SOFTWARE_UPDATES.md) for maintainer details.

@@ -766,3 +766,17 @@ select {
     grid-template-columns: 1fr;
   }
 }
+:root { --update-border: #466a82; }
+.update-banner {
+  margin: 0 24px 12px;
+  padding: 14px 18px;
+  border: 1px solid var(--update-border);
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.update-banner p { margin: 5px 0 0; max-width: 620px; font-size: 13px; }
+.update-banner.is-hidden { display: none; }

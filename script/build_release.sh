@@ -32,3 +32,16 @@ fi
 
 cp "$DMG_PATH" "$BUILDS_DIR/"
 echo "Release build ready: $BUILDS_DIR/$(basename "$DMG_PATH")"
+
+# A whole, signed app bundle is required for the in-app replacement utility.
+UPDATE_APP="$ROOT_DIR/target/release/bundle/macos/CS2 Settings Generator.app"
+UPDATE_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$UPDATE_APP/Contents/Info.plist")"
+UPDATE_ARCH="$(uname -m)"
+case "$UPDATE_ARCH" in arm64) ;; x86_64) UPDATE_ARCH=x64 ;; *) exit 1 ;; esac
+/usr/bin/codesign --verify --deep --strict "$UPDATE_APP"
+/usr/bin/lipo "$UPDATE_APP/Contents/MacOS/cs2-settings-generator" -verify_arch "$(uname -m)"
+UPDATE_ZIP="$BUILDS_DIR/CS2-Settings-Generator-$UPDATE_VERSION-macos-$UPDATE_ARCH.zip"
+# ditto preserves the signature and executable permissions. Avoid AppleDouble sidecars.
+/usr/bin/ditto -c -k --norsrc --keepParent "$UPDATE_APP" "$UPDATE_ZIP"
+/usr/bin/shasum -a 256 "$UPDATE_ZIP" > "$UPDATE_ZIP.sha256"
+echo "Update package ready: $UPDATE_ZIP"

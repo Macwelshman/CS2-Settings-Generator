@@ -12,8 +12,20 @@
         <p class="eyebrow">Cities: Skylines II</p>
         <h1>Settings Generator</h1>
       </div>
-      <button id="choose-folder" class="button button-primary">Scan Export Folder…</button>
+      <div class="folder-actions">
+        <button id="check-updates" class="button button-quiet">Check for Updates…</button>
+        <button id="choose-folder" class="button button-primary">Scan Export Folder…</button>
+      </div>
     </header>
+
+    <section id="update-banner" class="update-banner is-hidden" role="status" aria-live="polite">
+      <div><strong id="update-title"></strong><p id="update-message"></p></div>
+      <div class="folder-actions">
+        <button id="install-update" class="button button-primary">Update Now</button>
+        <button id="view-update" class="button button-secondary">View Release</button>
+        <button id="dismiss-update" class="button button-quiet">Later</button>
+      </div>
+    </section>
 
     <main id="app">
       <section id="drop-zone" class="drop-zone">
@@ -76,5 +88,6 @@
 
     <div id="toast" class="toast is-hidden" role="status"></div>
     <script src="app.js"></script>
+    <script src="updates.js"></script>
   </body>
 </html>
