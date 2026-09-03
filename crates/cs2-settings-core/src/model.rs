@@ -18,6 +18,21 @@ pub struct TextureSetOverride {
     pub texture_set_name: String,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetSettingsOverride {
+    pub asset_folder: PathBuf,
+    pub asset_type: AssetType,
+    pub normal_opacity: Option<f32>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AssetType {
+    Standard,
+    Decal,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GenerationReport {
@@ -52,6 +67,8 @@ pub struct AssetScan {
     pub files: Vec<FbxFile>,
     pub main_texture_set: Option<TextureSet>,
     pub lod2_texture_set: Option<TextureSet>,
+    pub asset_type: AssetType,
+    pub normal_opacity: Option<f32>,
     pub settings: SettingsPreview,
     pub issues: Vec<Issue>,
 }

@@ -1,5 +1,8 @@
 use crate::model::{GenerationAction, GenerationItem, GenerationReport};
-use crate::{ScanError, TextureSetOverride, scan_export_folder, scan_export_folder_with_overrides};
+use crate::{
+    AssetSettingsOverride, ScanError, TextureSetOverride, scan_export_folder,
+    scan_export_folder_with_all_overrides, scan_export_folder_with_overrides,
+};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -18,6 +21,17 @@ pub fn generate_settings_files_with_overrides(
     texture_overrides: &[TextureSetOverride],
 ) -> Result<GenerationReport, ScanError> {
     let scan = scan_export_folder_with_overrides(root, texture_overrides)?;
+    generate_from_scan(scan, replace_existing)
+}
+
+pub fn generate_settings_files_with_all_overrides(
+    root: &Path,
+    replace_existing: bool,
+    texture_overrides: &[TextureSetOverride],
+    asset_settings_overrides: &[AssetSettingsOverride],
+) -> Result<GenerationReport, ScanError> {
+    let scan =
+        scan_export_folder_with_all_overrides(root, texture_overrides, asset_settings_overrides)?;
     generate_from_scan(scan, replace_existing)
 }
 

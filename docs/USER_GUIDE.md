@@ -6,7 +6,8 @@
 
 CS2 Settings Generator scans a complete Cities: Skylines II asset export,
 checks its FBX and texture relationships, and creates the `settings.json` files
-needed when assets share textures.
+needed when assets share textures. It can also add the import settings required
+for decal assets.
 
 The app never edits FBX files or textures. Existing `settings.json` files are
 preserved unless you explicitly enable replacement.
@@ -51,7 +52,7 @@ My Export/
 │   ├── Building Textures_BaseColor.png
 │   ├── Building Textures_MaskMap.png
 │   └── Building Textures_Normal.png
-└── Signs/
+├── Signs/
     ├── Sign A/
     │   ├── Sign A.fbx
     │   └── Sign A_LOD1.fbx
@@ -59,6 +60,12 @@ My Export/
         ├── Shared Sign Textures_BaseColor.png
         ├── Shared Sign Textures_MaskMap.png
         └── Shared Sign Textures_Normal.png
+└── Decals/
+    └── Courtyard Marking/
+        ├── Courtyard Marking.fbx
+        ├── Courtyard Marking_BaseColor.png
+        ├── Courtyard Marking_MaskMap.png
+        └── Courtyard Marking_Normal.png
 ```
 
 ## Scan an export
@@ -82,6 +89,38 @@ Select an asset in the left column to inspect:
 - validation warnings or errors;
 - the proposed `settings.json` content.
 
+## Choose the asset type
+
+Every detected asset initially uses **Standard asset**. This keeps the existing
+mesh and LOD texture-sharing behaviour unchanged.
+
+If the selected files are for a decal:
+
+1. Select the asset in the left column.
+2. Under **Asset type**, choose **Decal**.
+3. Check the automatically detected **Decal texture set**, or choose a shared
+   texture set manually.
+4. Resolve any missing BaseColor, MaskMap, or Normal errors.
+5. Review the combined `settings.json` preview.
+
+<p align="center">
+  <img src="./images/decal-settings.png" width="900" alt="Per-asset Standard asset and Decal settings">
+</p>
+
+The choice applies only to that asset, so standard assets and decals can be
+processed together in one overall export-folder scan. Decals do not require an
+LOD1 or LOD2 mesh, and the app does not show the standard missing-LOD1 warning
+for them.
+
+Selecting **Decal** adds the required `DefaultDecal` material template. Enable
+**Override normal opacity** only when you want to write `_NormalOpacity` into
+the settings file. A value of `0` lets the underlying surface normal show
+through; `1` uses the decal normal fully.
+
+Texture Area, Render Priority, Layer Mask, and Infoview Color are configured on
+the decal Render Prefab after importing into CS2. They are not written by this
+app.
+
 ## How texture sets are resolved
 
 The scanner follows these rules:
@@ -99,9 +138,9 @@ Common supported maps include `BaseColor`, `ControlMask`, `MaskMap`, `Normal`,
 
 ## Choose a texture set manually
 
-Use the **Main + LOD1 texture set** menu when automatic detection cannot decide
-between multiple texture providers, or when differently named assets share a
-material and texture set.
+Use the **Main + LOD1 texture set** menu—or **Decal texture set** for a selected
+decal—when automatic detection cannot decide between multiple texture
+providers, or when differently named assets share a material and texture set.
 
 1. Select the affected asset.
 2. Open **Main + LOD1 texture set**.
@@ -127,6 +166,9 @@ The app checks that:
 - every proposed shared-texture destination exists;
 - ambiguous texture providers are not guessed silently.
 
+For decals, the app additionally requires BaseColor, MaskMap, and Normal in the
+selected texture set. ControlMask and Emissive remain optional.
+
 ## Generate settings files
 
 1. Resolve any blocking errors.
@@ -147,6 +189,29 @@ Each generated file is written inside its asset folder:
   }
 }
 ```
+
+For a decal using shared textures, both kinds of information are kept in that
+same file:
+
+```json
+{
+  "SurfacePostProcessor": {
+    "materialTemplate": "DefaultDecal",
+    "floatProperties": {
+      "_NormalOpacity": 0
+    }
+  },
+  "sharedAssets": {
+    "Courtyard Marking_BaseColor.png": "../Shared Decal Textures/Courtyard_BaseColor.png",
+    "Courtyard Marking_MaskMap.png": "../Shared Decal Textures/Courtyard_MaskMap.png",
+    "Courtyard Marking_Normal.png": "../Shared Decal Textures/Courtyard_Normal.png"
+  }
+}
+```
+
+If normal opacity is not overridden, the `floatProperties` block is omitted.
+If textures already have the correct local names, `sharedAssets` can be empty
+while the decal import settings are still generated.
 
 ## Clear, rescan, and replacement safety
 
@@ -171,6 +236,13 @@ assets.
 In your 3D software, rename the mesh object to exactly match the FBX filename
 without the `.fbx` extension, then export the FBX again. For example,
 `Station_LOD1.fbx` must contain one mesh object named `Station_LOD1`.
+
+### A decal reports missing required textures
+
+Confirm that the selected **Decal texture set** contains matching PNG files for
+BaseColor, MaskMap, and Normal. If those textures live in another asset folder,
+choose that shared set from the menu; the app will add portable relative paths
+to the same decal `settings.json`.
 
 ### Existing settings files were preserved
 

@@ -6,6 +6,7 @@ const state = {
   scan: null,
   selectedIndex: 0,
   textureOverrides: new Map(),
+  assetSettingsOverrides: new Map(),
   busy: false,
 };
 
@@ -70,18 +71,25 @@ async function chooseFolder() {
 async function scanFolder(folder, resetOverrides = false) {
   if (!invoke || state.busy) return;
   const selectedFolder = state.scan?.assets[state.selectedIndex]?.folder;
-  if (resetOverrides) state.textureOverrides.clear();
+  if (resetOverrides) {
+    state.textureOverrides.clear();
+    state.assetSettingsOverrides.clear();
+  }
   setBusy(true, "Scanning FBX and texture files…");
   try {
     const scan = await invoke("scan_export_folder", {
       path: folder,
       textureOverrides: serializedTextureOverrides(),
+      assetSettingsOverrides: serializedAssetSettingsOverrides(),
     });
     state.root = scan.root;
     state.scan = scan;
     const validFolders = new Set(scan.assets.map((asset) => asset.folder));
     for (const assetFolder of state.textureOverrides.keys()) {
       if (!validFolders.has(assetFolder)) state.textureOverrides.delete(assetFolder);
+    }
+    for (const assetFolder of state.assetSettingsOverrides.keys()) {
+      if (!validFolders.has(assetFolder)) state.assetSettingsOverrides.delete(assetFolder);
     }
     const preservedIndex = scan.assets.findIndex((asset) => asset.folder === selectedFolder);
     state.selectedIndex = preservedIndex >= 0 ? preservedIndex : 0;
@@ -102,6 +110,7 @@ async function generateSettings() {
       path: state.root,
       replaceExisting,
       textureOverrides: serializedTextureOverrides(),
+      assetSettingsOverrides: serializedAssetSettingsOverrides(),
     });
     const counts = report.items.reduce((result, item) => {
       result[item.action] = (result[item.action] || 0) + 1;
@@ -131,6 +140,7 @@ function clearScan() {
   state.scan = null;
   state.selectedIndex = 0;
   state.textureOverrides.clear();
+  state.assetSettingsOverrides.clear();
   elements.replaceExisting.checked = false;
   elements.workspace.classList.add("is-hidden");
   elements.dropZone.classList.remove("is-hidden", "is-dragging");
@@ -245,7 +255,11 @@ function renderAssetDetail() {
       ${warningCount ? `<span class="badge badge-warning">${warningCount} warning${warningCount === 1 ? "" : "s"}</span>` : ""}
       ${errorCount ? `<span class="badge badge-error">${errorCount} error${errorCount === 1 ? "" : "s"}</span>` : ""}
       <span class="badge">${asset.settings.entries.length} redirects</span>
+      <span class="badge ${asset.assetType === "decal" ? "badge-decal" : ""}">${asset.assetType === "decal" ? "Decal" : "Standard asset"}</span>
     </div>
+
+    <h3 class="section-title">Asset type</h3>
+    ${assetTypeEditor(asset)}
 
     <h3 class="section-title">FBX files</h3>
     <table class="file-table">
@@ -255,9 +269,7 @@ function renderAssetDetail() {
 
     <h3 class="section-title">Texture sources</h3>
     ${mainTextureEditor(asset)}
-    <div class="texture-grid texture-grid-secondary">
-      ${textureCard("LOD2", asset.lod2TextureSet)}
-    </div>
+    ${asset.assetType === "decal" ? "" : `<div class="texture-grid texture-grid-secondary">${textureCard("LOD2", asset.lod2TextureSet)}</div>`}
 
     <h3 class="section-title">Validation</h3>
     <div class="issue-list">${issues}</div>
@@ -266,6 +278,7 @@ function renderAssetDetail() {
     <pre class="json-preview">${escapeHtml(asset.settings.json)}</pre>
   `;
 
+  bindAssetTypeControls(asset);
   bindTextureSourceControls(asset);
 }
 
@@ -277,11 +290,86 @@ function assetRow(asset, index) {
       <strong>${escapeHtml(asset.name)}</strong>
       <div class="asset-meta">
         <span class="badge">${asset.files.length} FBX</span>
+        ${asset.assetType === "decal" ? '<span class="badge badge-decal">Decal</span>' : ""}
         <span class="badge">${asset.settings.entries.length} links</span>
         ${warnings ? `<span class="badge badge-warning">${warnings} ⚠</span>` : ""}
         ${errors ? `<span class="badge badge-error">${errors} errors</span>` : ""}
       </div>
     </button>`;
+}
+
+function assetTypeEditor(asset) {
+  const isDecal = asset.assetType === "decal";
+  const hasNormalOpacity = asset.normalOpacity !== null;
+  const normalOpacity = hasNormalOpacity ? asset.normalOpacity : 1;
+  return `
+    <div class="asset-type-editor">
+      <div class="asset-type-options" role="group" aria-label="Asset type">
+        <button type="button" class="asset-type-option ${isDecal ? "" : "is-selected"}" data-asset-type="standard">Standard asset</button>
+        <button type="button" class="asset-type-option ${isDecal ? "is-selected" : ""}" data-asset-type="decal">Decal</button>
+      </div>
+      ${isDecal ? `
+        <p class="asset-type-help">Adds the DefaultDecal material template. Decals use a main mesh and require BaseColor, MaskMap, and Normal textures.</p>
+        <label class="normal-opacity-toggle">
+          <input id="normal-opacity-enabled" type="checkbox" ${hasNormalOpacity ? "checked" : ""} />
+          <span>Override normal opacity</span>
+        </label>
+        <div class="normal-opacity-control ${hasNormalOpacity ? "" : "is-disabled"}">
+          <input id="normal-opacity" type="range" min="0" max="1" step="0.05" value="${normalOpacity}" ${hasNormalOpacity ? "" : "disabled"} />
+          <output id="normal-opacity-value">${formatOpacity(normalOpacity)}</output>
+        </div>
+        <p class="asset-type-help">0 lets the underlying surface normal show through; 1 uses the decal normal fully.</p>
+        <div class="decal-after-import"><strong>After importing</strong><span>Texture Area, Render Priority, Layer Mask, and Infoview Color remain editable on the decal Render Prefab in CS2.</span></div>
+      ` : '<p class="asset-type-help">Uses the standard mesh and LOD texture-sharing rules.</p>'}
+    </div>`;
+}
+
+function bindAssetTypeControls(asset) {
+  elements.assetDetail.querySelectorAll("[data-asset-type]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (state.busy || button.dataset.assetType === asset.assetType) return;
+      if (button.dataset.assetType === "standard") {
+        state.assetSettingsOverrides.delete(asset.folder);
+      } else {
+        state.assetSettingsOverrides.set(asset.folder, {
+          assetFolder: asset.folder,
+          assetType: "decal",
+          normalOpacity: null,
+        });
+      }
+      await scanFolder(state.root);
+    });
+  });
+
+  const enabled = elements.assetDetail.querySelector("#normal-opacity-enabled");
+  const slider = elements.assetDetail.querySelector("#normal-opacity");
+  const output = elements.assetDetail.querySelector("#normal-opacity-value");
+  slider?.addEventListener("input", () => {
+    if (output) output.textContent = formatOpacity(Number(slider.value));
+  });
+  enabled?.addEventListener("change", async () => {
+    const current = state.assetSettingsOverrides.get(asset.folder) ?? {
+      assetFolder: asset.folder,
+      assetType: "decal",
+      normalOpacity: null,
+    };
+    current.normalOpacity = enabled.checked ? Number(slider?.value ?? 1) : null;
+    state.assetSettingsOverrides.set(asset.folder, current);
+    await scanFolder(state.root);
+  });
+  slider?.addEventListener("change", async () => {
+    if (!enabled?.checked) return;
+    state.assetSettingsOverrides.set(asset.folder, {
+      assetFolder: asset.folder,
+      assetType: "decal",
+      normalOpacity: Number(slider.value),
+    });
+    await scanFolder(state.root);
+  });
+}
+
+function formatOpacity(value) {
+  return Number(value).toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 function textureCard(label, textureSet) {
@@ -323,7 +411,9 @@ function mainTextureEditor(asset) {
   const sourceMode = textureOverride ? "Manual selection" : "Automatic";
   const sourceDetails = asset.mainTextureSet
     ? `${asset.mainTextureSet.files.length} maps · ${asset.mainTextureSet.folder}`
-    : "No texture set is currently available for the main mesh and LOD1.";
+    : asset.assetType === "decal"
+      ? "No texture set is currently available for this decal."
+      : "No texture set is currently available for the main mesh and LOD1.";
   const applyLabel = !material
     ? "No main material available"
     : !asset.mainTextureSet
@@ -341,7 +431,7 @@ function mainTextureEditor(asset) {
         </div>
         <span class="badge ${textureOverride ? "badge-warning" : "badge-good"}">${sourceMode}</span>
       </div>
-      <label class="texture-select-label" for="main-texture-set">Main + LOD1 texture set</label>
+      <label class="texture-select-label" for="main-texture-set">${asset.assetType === "decal" ? "Decal texture set" : "Main + LOD1 texture set"}</label>
       <select id="main-texture-set" class="texture-select">
         <option value="" ${selectedIndex === undefined ? "selected" : ""}>${escapeHtml(automaticLabel)}</option>
         ${options}
@@ -401,6 +491,10 @@ function textureOverrideFor(asset, textureSet) {
 
 function serializedTextureOverrides() {
   return [...state.textureOverrides.values()];
+}
+
+function serializedAssetSettingsOverrides() {
+  return [...state.assetSettingsOverrides.values()];
 }
 
 function mainMaterialForAsset(asset) {

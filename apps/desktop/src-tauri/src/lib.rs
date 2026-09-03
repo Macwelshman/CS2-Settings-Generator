@@ -1,4 +1,4 @@
-use cs2_settings_core::{GenerationReport, ScanResult, TextureSetOverride};
+use cs2_settings_core::{AssetSettingsOverride, GenerationReport, ScanResult, TextureSetOverride};
 use std::path::PathBuf;
 
 #[tauri::command]
@@ -13,9 +13,14 @@ fn choose_export_folder() -> Option<String> {
 fn scan_export_folder(
     path: String,
     texture_overrides: Vec<TextureSetOverride>,
+    asset_settings_overrides: Vec<AssetSettingsOverride>,
 ) -> Result<ScanResult, String> {
-    cs2_settings_core::scan_export_folder_with_overrides(&PathBuf::from(path), &texture_overrides)
-        .map_err(|error| error.to_string())
+    cs2_settings_core::scan_export_folder_with_all_overrides(
+        &PathBuf::from(path),
+        &texture_overrides,
+        &asset_settings_overrides,
+    )
+    .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -23,11 +28,13 @@ fn generate_settings(
     path: String,
     replace_existing: bool,
     texture_overrides: Vec<TextureSetOverride>,
+    asset_settings_overrides: Vec<AssetSettingsOverride>,
 ) -> Result<GenerationReport, String> {
-    cs2_settings_core::generate_settings_files_with_overrides(
+    cs2_settings_core::generate_settings_files_with_all_overrides(
         &PathBuf::from(path),
         replace_existing,
         &texture_overrides,
+        &asset_settings_overrides,
     )
     .map_err(|error| error.to_string())
 }

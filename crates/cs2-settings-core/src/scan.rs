@@ -1,6 +1,7 @@
 use crate::fbx::{classify_fbx, inspect_fbx};
 use crate::model::{
-    AssetScan, FbxFile, FbxKind, Issue, ScanResult, TextureSet, TextureSetOverride, TextureTier,
+    AssetScan, AssetSettingsOverride, AssetType, FbxFile, FbxKind, Issue, ScanResult, TextureKind,
+    TextureSet, TextureSetOverride, TextureTier,
 };
 use crate::settings::build_settings_preview;
 use crate::texture::collect_texture_sets;
@@ -33,12 +34,20 @@ impl Display for ScanError {
 impl Error for ScanError {}
 
 pub fn scan_export_folder(root: &Path) -> Result<ScanResult, ScanError> {
-    scan_export_folder_with_overrides(root, &[])
+    scan_export_folder_with_all_overrides(root, &[], &[])
 }
 
 pub fn scan_export_folder_with_overrides(
     root: &Path,
     texture_overrides: &[TextureSetOverride],
+) -> Result<ScanResult, ScanError> {
+    scan_export_folder_with_all_overrides(root, texture_overrides, &[])
+}
+
+pub fn scan_export_folder_with_all_overrides(
+    root: &Path,
+    texture_overrides: &[TextureSetOverride],
+    asset_settings_overrides: &[AssetSettingsOverride],
 ) -> Result<ScanResult, ScanError> {
     let root = fs::canonicalize(root).map_err(|error| {
         ScanError::new(format!(
@@ -132,9 +141,28 @@ pub fn scan_export_folder_with_overrides(
         }
         files.sort_by_key(|file| (file.kind, file.path.clone()));
 
+        let asset_settings_override = asset_settings_overrides
+            .iter()
+            .find(|asset_override| asset_override.asset_folder == folder);
+        let asset_type = asset_settings_override
+            .map(|asset_override| asset_override.asset_type)
+            .unwrap_or(AssetType::Standard);
+        let normal_opacity =
+            asset_settings_override.and_then(|asset_override| asset_override.normal_opacity);
+
+        if let Some(value) = normal_opacity
+            && !(0.0..=1.0).contains(&value)
+        {
+            issues.push(Issue::error(
+                "normalOpacityOutOfRange",
+                "Decal normal opacity must be between 0 and 1.",
+                &folder,
+            ));
+        }
+
         let has_lod1 = files.iter().any(|file| file.kind.is_lod1());
         let has_lod2 = files.iter().any(|file| file.kind.is_lod2());
-        if !has_lod1 {
+        if asset_type == AssetType::Standard && !has_lod1 {
             issues.push(Issue::warning(
                 "lod1Missing",
                 "No LOD1 FBX was found. CS2 building assets require an LOD1 mesh.",
@@ -165,6 +193,10 @@ pub fn scan_export_folder_with_overrides(
             &mut issues,
         );
 
+        if asset_type == AssetType::Decal {
+            validate_decal_texture_set(main_texture_set.as_ref(), &folder, &mut issues);
+        }
+
         let settings = build_settings_preview(
             &asset_name,
             &folder,
@@ -172,6 +204,8 @@ pub fn scan_export_folder_with_overrides(
             has_lod2,
             main_texture_set.as_ref(),
             lod2_texture_set.as_ref(),
+            asset_type,
+            normal_opacity,
             &mut issues,
         );
 
@@ -181,6 +215,8 @@ pub fn scan_export_folder_with_overrides(
             files,
             main_texture_set,
             lod2_texture_set,
+            asset_type,
+            normal_opacity,
             settings,
             issues,
         });
@@ -193,6 +229,38 @@ pub fn scan_export_folder_with_overrides(
         texture_sets,
         global_issues,
     })
+}
+
+fn validate_decal_texture_set(
+    texture_set: Option<&TextureSet>,
+    asset_folder: &Path,
+    issues: &mut Vec<Issue>,
+) {
+    let Some(texture_set) = texture_set else {
+        issues.push(Issue::error(
+            "decalTextureSetUnresolved",
+            "Decals require a BaseColor, MaskMap, and Normal texture set.",
+            asset_folder,
+        ));
+        return;
+    };
+
+    for (kind, label) in [
+        (TextureKind::BaseColor, "BaseColor"),
+        (TextureKind::MaskMap, "MaskMap"),
+        (TextureKind::Normal, "Normal"),
+    ] {
+        if !texture_set.files.iter().any(|file| file.kind == kind) {
+            issues.push(Issue::error(
+                "decalRequiredTextureMissing",
+                format!(
+                    "Decal texture set “{}” is missing {label}.",
+                    texture_set.name
+                ),
+                asset_folder,
+            ));
+        }
+    }
 }
 
 fn resolve_main_texture_set(
@@ -360,6 +428,31 @@ mod tests {
 
         assert_eq!(resolved.name, "San Diego Crematorium");
         assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn decal_requires_base_color_mask_map_and_normal() {
+        let folder = PathBuf::from("/export/Decal");
+        let mut set = texture_set("Decal", &folder);
+        set.files.push(crate::model::TextureFile {
+            path: folder.join("Decal_BaseColor.png"),
+            kind: TextureKind::BaseColor,
+            width: Some(512),
+            height: Some(512),
+        });
+        let mut issues = Vec::new();
+
+        validate_decal_texture_set(Some(&set), &folder, &mut issues);
+
+        assert_eq!(
+            issues
+                .iter()
+                .filter(|issue| issue.code == "decalRequiredTextureMissing")
+                .count(),
+            2
+        );
+        assert!(issues.iter().any(|issue| issue.message.contains("MaskMap")));
+        assert!(issues.iter().any(|issue| issue.message.contains("Normal")));
     }
 
     fn texture_set(name: &str, folder: &Path) -> TextureSet {

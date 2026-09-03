@@ -13,6 +13,10 @@ it.
 Each folder containing an unsuffixed main `.fbx` is treated as an Asset Folder.
 A preview is produced for `<Asset Folder>/settings.json`.
 
+Each detected asset defaults to **Standard asset**. The user can change an
+individual asset to **Decal** without changing the type of other assets in the
+same export-folder scan.
+
 ## FBX recognition
 
 Recognised material meshes:
@@ -37,6 +41,10 @@ import-readiness warning and does not modify the source FBX.
 LOD2 is optional because smaller assets such as props and decals may not require
 one. Its absence is not a warning; when an LOD2 FBX is present, its texture rules
 are validated normally.
+
+Decals do not require LOD1 or LOD2 meshes. Selecting **Decal** suppresses the
+standard missing-LOD1 warning and requires a main BaseColor, MaskMap, and Normal
+texture.
 
 Material names are read only to help identify texture providers. The app does
 not validate whether an FBX has a material, how many materials it has, or which
@@ -70,6 +78,21 @@ set.
 - A generated `sharedAssets` destination must resolve to an existing file.
 - Existing settings files are identified during scanning and are never replaced
   without an explicit user option.
+
+## Decal import settings
+
+For an asset explicitly selected as **Decal**, the generated file adds:
+
+```json
+"SurfacePostProcessor": {
+  "materialTemplate": "DefaultDecal"
+}
+```
+
+The optional normal-opacity override adds `floatProperties._NormalOpacity` with
+a value from 0 through 1. This decal section and `sharedAssets` are written into
+the same `settings.json`, so local and shared decal texture sets follow the same
+path-resolution rules as other assets.
 
 ## Automatic matching
 

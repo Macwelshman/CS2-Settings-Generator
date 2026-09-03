@@ -366,6 +366,12 @@ select {
   border-color: rgb(255 120 134 / 30%);
 }
 
+.badge-decal {
+  color: #bba8ff;
+  border-color: rgb(187 168 255 / 34%);
+  background: rgb(118 87 210 / 12%);
+}
+
 .detail-panel {
   overflow: auto;
   padding: 14px 16px 18px;
@@ -439,6 +445,105 @@ select {
   border: 1px solid var(--line);
   border-radius: 9px;
   background: #151b23;
+}
+
+.asset-type-editor {
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #151b23;
+}
+
+.asset-type-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  padding: 4px;
+  border-radius: 8px;
+  background: #10151c;
+}
+
+.asset-type-option {
+  min-height: 31px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.asset-type-option:hover {
+  color: #edf4fb;
+  background: #1d2631;
+}
+
+.asset-type-option.is-selected {
+  border-color: #52637a;
+  color: #fff;
+  background: #29384b;
+}
+
+.asset-type-help {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.normal-opacity-toggle {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #d9e2eb;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.normal-opacity-control {
+  margin-top: 7px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  align-items: center;
+  gap: 10px;
+}
+
+.normal-opacity-control.is-disabled {
+  opacity: 0.42;
+}
+
+.normal-opacity-control input {
+  width: 100%;
+}
+
+.normal-opacity-control output {
+  color: #dce7f2;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.decal-after-import {
+  margin-top: 11px;
+  padding: 9px 10px;
+  border-left: 2px solid #8f78e8;
+  border-radius: 0 6px 6px 0;
+  display: grid;
+  gap: 2px;
+  color: var(--muted);
+  background: rgb(118 87 210 / 9%);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.decal-after-import strong {
+  color: #c9bcff;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .texture-editor-heading,
