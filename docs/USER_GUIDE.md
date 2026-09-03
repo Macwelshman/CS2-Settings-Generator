@@ -17,6 +17,14 @@ preserved unless you explicitly enable replacement.
 Download the newest version from the
 [GitHub Releases page](https://github.com/Macwelshman/CS2-Settings-Generator/releases/latest).
 
+**Development-build note:** the decal and updater features described below
+have not yet been published as a new release. The Windows x64 test build from
+commit `1c597cb` was reported working in UTM. It still shows **0.1.3**, but is
+different from the older published 0.1.3 installer. Its installers are in the
+`CS2-Settings-Generator-Windows` artifact on the
+[Windows build page](https://github.com/Macwelshman/CS2-Settings-Generator/actions/runs/33795645383).
+Downloading an artifact may require GitHub sign-in.
+
 ### macOS
 
 1. Download the Apple Silicon `.dmg` file.
@@ -36,6 +44,11 @@ An `.msi` installer is also supplied for managed deployment. The Windows build
 is currently unsigned, so Windows may display a security warning during the
 first installation.
 
+For a workflow test build, extract the downloaded artifact first, then run the
+`x64-setup.exe` inside it. Use the setup installer for initial installation;
+the separate `windows-x64.zip` is primarily the in-app update package. Close
+any running copy before manually installing a test build.
+
 ## Prepare the export folder
 
 Place the asset folders you want to process beneath one overall export folder.
@@ -53,13 +66,13 @@ My Export/
 │   ├── Building Textures_MaskMap.png
 │   └── Building Textures_Normal.png
 ├── Signs/
-    ├── Sign A/
-    │   ├── Sign A.fbx
-    │   └── Sign A_LOD1.fbx
-    └── Shared Sign Textures/
-        ├── Shared Sign Textures_BaseColor.png
-        ├── Shared Sign Textures_MaskMap.png
-        └── Shared Sign Textures_Normal.png
+│   ├── Sign A/
+│   │   ├── Sign A.fbx
+│   │   └── Sign A_LOD1.fbx
+│   └── Shared Sign Textures/
+│       ├── Shared Sign Textures_BaseColor.png
+│       ├── Shared Sign Textures_MaskMap.png
+│       └── Shared Sign Textures_Normal.png
 └── Decals/
     └── Courtyard Marking/
         ├── Courtyard Marking.fbx
@@ -263,3 +276,32 @@ When an update is available, select **Update Now** to download, verify and insta
 If the release has no compatible update package, use **View Release** to download its normal installer. Install the app in a writable location; Mac users should move it out of the downloaded disk image before updating.
 
 Older versions without this utility need one manual installation of the first updater-enabled release. See [Software update packaging and recovery](SOFTWARE_UPDATES.md) for maintainer details.
+
+### What to expect
+
+1. Finish generating any pending settings files.
+2. Select **Check for Updates…**. If there is no newer stable release, the app
+   reports that you are up to date.
+3. If an update is offered, select **View Release** to review it, or **Update
+   Now** and confirm the restart.
+4. The app downloads and verifies the package before closing. After a
+   successful replacement it reopens; scan your export folder again.
+
+**Later** dismisses the notice for this session. Automatic network-check
+failures are quiet; a manual check displays the error.
+
+### An update cannot be installed
+
+- If no matching package or valid checksum is available, use **View Release**
+  to find a normal installer. The app will not install an unverified download.
+- If the installation folder is not writable, move the Mac app to a writable
+  folder, or use the Windows installer to update an administrator-managed
+  installation. The updater does not request administrator privileges.
+- If downloading or verification fails, the current installation stays in
+  place. Retry later or use the release installer.
+- If replacement fails, the helper attempts to restore the previous app and
+  displays an error. If restoration also fails, keep the backup named in the
+  message and follow the [recovery notes](SOFTWARE_UPDATES.md#replacement-and-recovery).
+
+The successful UTM test confirms the test build was reported working; it does
+not establish that a complete upgrade to a newer release has been tested.

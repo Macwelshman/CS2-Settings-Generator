@@ -33,6 +33,22 @@ The first release containing this utility must be installed manually once. In-ap
 
 ## Validation commands
 
+### Current validation status
+
+The Windows x64 updater build at commit `1c597cb` passed the macOS and Windows
+test jobs and Windows packaging in
+[workflow run 33795645383](https://github.com/Macwelshman/CS2-Settings-Generator/actions/runs/33795645383).
+The downloaded ZIP passed its integrity check and matched its SHA-256 sidecar;
+the executable was verified as a Windows x64 GUI binary. The user subsequently
+reported the build working in UTM. This is user-reported app testing, not
+evidence of a complete newer-release installation or live rollback test.
+
+The test package retains version `0.1.3`; it has not been published as a new
+release. Give the eventual release a newer, consistently applied version so
+existing updater-enabled copies can detect it.
+
+### Repeatable checks
+
 Run `cargo test --workspace` and `node --test apps/desktop/tests/updates.test.cjs`. On Mac, after building the app, set `CS2_UPDATE_TEST_APP` to its absolute bundle path and run `cargo test -p cs2-settings-desktop macos_package_round_trip -- --ignored` to check ZIP extraction, bundle metadata, architecture and signature together.
 
 Before release, test the real update-and-restart flow from an older copy in a temporary installation folder on each supported platform. Check successful replacement, unwritable installation, missing/wrong digest, wrong version/identity, and recovery after a failed replacement. Do not test against the user's working installation.

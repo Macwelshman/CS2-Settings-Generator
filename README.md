@@ -2,10 +2,18 @@
 
 Cross-platform macOS and Windows utility for scanning a Cities: Skylines II
 asset export folder, checking mesh names and texture relationships, and
-generating the `settings.json` files required for shared textures.
+generating the `settings.json` files required for shared textures and decals.
 
 [Download the latest release](https://github.com/Macwelshman/CS2-Settings-Generator/releases/latest)
 or read the detailed [User Guide](docs/USER_GUIDE.md).
+
+The decal workflow and in-app updater are available in the current development
+build, but have not yet been published as a new release. The Windows x64 build
+from commit `1c597cb` passed automated tests and was reported working in UTM.
+It still displays version **0.1.3**; it is not the older published 0.1.3 binary.
+See the [successful Windows build](https://github.com/Macwelshman/CS2-Settings-Generator/actions/runs/33795645383)
+for its downloadable `CS2-Settings-Generator-Windows` artifact (GitHub sign-in
+may be required).
 
 ## Download and install
 
@@ -68,6 +76,12 @@ warnings, blocking errors, and proposed `settings.json` content.
 
 ### 4. Generate the files
 
+For decal assets, first change **Asset type** from **Standard asset** to
+**Decal**. Review the **Decal texture set** and optionally enable **Override
+normal opacity**. BaseColor, MaskMap and Normal are required. Decal import
+settings and any shared-texture redirects are written into the same file;
+standard assets in the same scan are unaffected.
+
 Resolve any blocking errors, review the preview, then select **Generate Settings
 Files**. Each generated `settings.json` is written into its corresponding asset
 folder.
@@ -84,7 +98,25 @@ and **Rescan** never delete or modify FBX files or textures.
 4. Resolve warnings or ambiguous shared-texture matches with the per-asset
    **Main + LOD1 texture set** selector. A selection can be applied to other
    non-local assets using the same FBX material.
-5. Preview and generate each asset folder's `settings.json`.
+5. Choose **Decal** for decal assets and review any normal-opacity override.
+6. Preview and generate each asset folder's `settings.json`.
+
+## Software updates
+
+The updater checks for a newer stable version when the app opens. Use
+**Check for Updates…** in the toolbar, or the application menu on Mac, to check
+manually. An available update offers **Update Now**, **View Release**, and
+**Later**.
+
+Downloads are verified before installation. Updating restarts the app, so
+generate any pending settings first: the current scan and ungenerated choices
+are not retained. Export files are not changed by the updater.
+
+Older versions need one manual installation of an updater-enabled build.
+Automatic installation also requires a compatible update ZIP on the newer
+release. If none is available, use **View Release** for the normal installer.
+See the [User Guide](docs/USER_GUIDE.md#software-updates) for troubleshooting
+and [update packaging notes](docs/SOFTWARE_UPDATES.md) for maintainers.
 
 ## Core generation rules
 
@@ -126,10 +158,11 @@ Build and launch the latest test app:
 ./script/build_and_run.sh
 ```
 
-Run all cross-platform core tests:
+Run the Rust and updater-interface tests:
 
 ```sh
 cargo test --workspace
+node --test apps/desktop/tests/updates.test.cjs
 ```
 
 Build the macOS release DMG:
@@ -148,6 +181,9 @@ folder from PowerShell:
 The GitHub Actions workflow tests every push and pull request on macOS and
 Windows. Its manual `workflow_dispatch` action also creates downloadable
 macOS and Windows artifacts collected from a `Builds` folder on each runner.
+Choose `windows` to build the Windows installers and x64 update ZIP. Release
+scripts also create SHA-256 sidecars for update ZIPs. Workflow artifacts are
+test downloads, not published releases.
 
 ## Disclaimer
 
