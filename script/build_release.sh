@@ -11,6 +11,7 @@ cd "$ROOT_DIR"
 
 case "$MODE" in
   build)
+    bash "$ROOT_DIR/script/compile_macos_icon.sh"
     BUILD_MARKER="$(mktemp "${TMPDIR:-/tmp}/cs2-settings-build.XXXXXX")"
     trap 'rm -f "$BUILD_MARKER"' EXIT
     cargo tauri build --bundles dmg
