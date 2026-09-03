@@ -182,6 +182,11 @@ node --test apps/desktop/tests/updates.test.cjs
 
 Build the macOS release DMG:
 
+Local and release Mac builds use the same adaptive Light/Dark/Glass icon
+source and shared compilation script, including GitHub Actions packaging.
+These builds require macOS 14 or later. The release is optimised; the local
+test app is a debug build.
+
 ```sh
 ./script/build_release.sh
 ```

@@ -51,6 +51,9 @@ jobs:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Compile the shared adaptive Mac icon
+        if: (inputs.package_platform == 'all' || inputs.package_platform == matrix.platform) && runner.os == 'macOS'
+        run: bash script/compile_macos_icon.sh
       - uses: tauri-apps/tauri-action@v0
         if: inputs.package_platform == 'all' || inputs.package_platform == matrix.platform
         env:

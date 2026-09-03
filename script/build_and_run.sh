@@ -14,18 +14,23 @@ APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_BINARY="$APP_MACOS/$PROCESS_NAME"
 BUILD_BINARY="$ROOT_DIR/target/debug/$PROCESS_NAME"
+ICON_BUILD_DIR="$ROOT_DIR/target/debug/icon-assets"
 
 pkill -x "$PROCESS_NAME" >/dev/null 2>&1 || true
 
 cd "$ROOT_DIR"
+bash "$ROOT_DIR/script/compile_macos_icon.sh" "$ICON_BUILD_DIR"
+
 cargo build -p cs2-settings-desktop --bin "$PROCESS_NAME"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 cp "$ROOT_DIR/script/Info.plist" "$APP_CONTENTS/Info.plist"
-cp "$ROOT_DIR/apps/desktop/src-tauri/icons/icon.png" "$APP_RESOURCES/AppIcon.png"
+cp "$ICON_BUILD_DIR/Assets.car" "$APP_RESOURCES/Assets.car"
+cp "$ICON_BUILD_DIR/CS2Settings.icns" "$APP_RESOURCES/CS2Settings.icns"
 chmod +x "$APP_BINARY"
+/usr/bin/codesign --force --deep --sign - "$APP_BUNDLE"
 
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
