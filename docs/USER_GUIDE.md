@@ -17,13 +17,14 @@ preserved unless you explicitly enable replacement.
 Download the newest version from the
 [GitHub Releases page](https://github.com/Macwelshman/CS2-Settings-Generator/releases/latest).
 
-**Development-build note:** the decal and updater features described below
-have not yet been published as a new release. The Windows x64 test build from
-commit `1c597cb` was reported working in UTM. It still shows **0.1.3**, but is
-different from the older published 0.1.3 installer. Its installers are in the
-`CS2-Settings-Generator-Windows` artifact on the
-[Windows build page](https://github.com/Macwelshman/CS2-Settings-Generator/actions/runs/33795645383).
-Downloading an artifact may require GitHub sign-in.
+**Development-build note:** the additional window-file support, decal workflow
+and updater described below have not yet been published as a new release.
+Use the latest successful `main` Windows packaging run on the
+[builds page](https://github.com/Macwelshman/CS2-Settings-Generator/actions/workflows/ci.yml)
+and download its `CS2-Settings-Generator-Windows` artifact. Downloading may
+require GitHub sign-in. These test builds still show **0.1.3**, but differ from
+the older published installer. The earlier build `1c597cb` was reported working
+in UTM; it did not yet contain the additional window-file changes.
 
 ### macOS
 
@@ -101,6 +102,25 @@ Select an asset in the left column to inspect:
 - the independently detected LOD2 texture set;
 - validation warnings or errors;
 - the proposed `settings.json` content.
+
+## Accepted window files
+
+Window sub-meshes are recognised alongside the main FBX:
+
+| File suffix | Type shown in the app |
+| --- | --- |
+| `_Win` | Window |
+| `_Wio` | Opaque Window (_Wio) |
+| `_Wim` | Opaque Window (_Wim) |
+| `_Wif` | Frosted Window (_Wif) |
+
+LOD variants are accepted too: for example, `House_LOD1_Wio.fbx`,
+`House_LOD2_Wim.fbx` and `House_LOD1_Wif.fbx`. Keep the parent asset name
+consistent. These files appear under their parent asset rather than as separate
+main assets, and do not need their own shared-texture entries in `settings.json`.
+
+Acceptance does not bypass validation: each file must still contain one mesh
+object named exactly like the filename without `.fbx`.
 
 ## Choose the asset type
 

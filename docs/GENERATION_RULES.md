@@ -27,7 +27,9 @@ Recognised material meshes:
 
 Recognised shader sub-mesh suffixes:
 
-- `_Win` and `_Wim`
+- `_Win`
+- `_Wio` and `_Wim` (opaque windows)
+- `_Wif` (frosted windows)
 - `_Gls`
 - `_Gra`
 - `_Wat`

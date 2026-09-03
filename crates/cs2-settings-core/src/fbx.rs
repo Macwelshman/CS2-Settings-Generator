@@ -3,19 +3,25 @@ use std::path::Path;
 
 const SUFFIXES: &[(&str, FbxKind)] = &[
     ("_LOD1_Win", FbxKind::Lod1Window),
-    ("_LOD1_Wim", FbxKind::Lod1MilkyWindow),
+    ("_LOD1_Wio", FbxKind::Lod1WioWindow),
+    ("_LOD1_Wim", FbxKind::Lod1WimWindow),
+    ("_LOD1_Wif", FbxKind::Lod1WifWindow),
     ("_LOD1_Gls", FbxKind::Lod1Glass),
     ("_LOD1_Gra", FbxKind::Lod1Grass),
     ("_LOD1_Wat", FbxKind::Lod1Water),
     ("_LOD2_Win", FbxKind::Lod2Window),
-    ("_LOD2_Wim", FbxKind::Lod2MilkyWindow),
+    ("_LOD2_Wio", FbxKind::Lod2WioWindow),
+    ("_LOD2_Wim", FbxKind::Lod2WimWindow),
+    ("_LOD2_Wif", FbxKind::Lod2WifWindow),
     ("_LOD2_Gls", FbxKind::Lod2Glass),
     ("_LOD2_Gra", FbxKind::Lod2Grass),
     ("_LOD2_Wat", FbxKind::Lod2Water),
     ("_LOD1", FbxKind::Lod1),
     ("_LOD2", FbxKind::Lod2),
     ("_Win", FbxKind::Window),
-    ("_Wim", FbxKind::MilkyWindow),
+    ("_Wio", FbxKind::WioWindow),
+    ("_Wim", FbxKind::WimWindow),
+    ("_Wif", FbxKind::WifWindow),
     ("_Gls", FbxKind::Glass),
     ("_Gra", FbxKind::Grass),
     ("_Wat", FbxKind::Water),
@@ -122,6 +128,38 @@ mod tests {
         );
         assert_eq!(classify_fbx("House_LOD1"), ("House", FbxKind::Lod1));
         assert_eq!(classify_fbx("House"), ("House", FbxKind::Main));
+    }
+
+    #[test]
+    fn classifies_wio_wim_and_wif_as_window_submeshes() {
+        assert_eq!(classify_fbx("House_Wio"), ("House", FbxKind::WioWindow));
+        assert_eq!(
+            classify_fbx("House_LOD1_Wio"),
+            ("House", FbxKind::Lod1WioWindow)
+        );
+        assert_eq!(
+            classify_fbx("House_LOD2_Wio"),
+            ("House", FbxKind::Lod2WioWindow)
+        );
+        assert_eq!(classify_fbx("House_Wim"), ("House", FbxKind::WimWindow));
+        assert_eq!(classify_fbx("House_Wif"), ("House", FbxKind::WifWindow));
+        assert_eq!(
+            classify_fbx("House_LOD1_Wif"),
+            ("House", FbxKind::Lod1WifWindow)
+        );
+        assert_eq!(
+            classify_fbx("House_LOD2_Wif"),
+            ("House", FbxKind::Lod2WifWindow)
+        );
+
+        // Window submeshes are displayed with their parent asset, but only the
+        // material LOD meshes drive shared-texture settings entries.
+        assert!(!FbxKind::Lod1WioWindow.is_lod1());
+        assert!(!FbxKind::Lod2WioWindow.is_lod2());
+        assert!(!FbxKind::Lod1WimWindow.is_lod1());
+        assert!(!FbxKind::Lod2WimWindow.is_lod2());
+        assert!(!FbxKind::Lod1WifWindow.is_lod1());
+        assert!(!FbxKind::Lod2WifWindow.is_lod2());
     }
 
     #[test]

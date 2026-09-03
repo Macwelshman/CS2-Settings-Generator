@@ -7,13 +7,21 @@ generating the `settings.json` files required for shared textures and decals.
 [Download the latest release](https://github.com/Macwelshman/CS2-Settings-Generator/releases/latest)
 or read the detailed [User Guide](docs/USER_GUIDE.md).
 
-The decal workflow and in-app updater are available in the current development
-build, but have not yet been published as a new release. The Windows x64 build
-from commit `1c597cb` passed automated tests and was reported working in UTM.
-It still displays version **0.1.3**; it is not the older published 0.1.3 binary.
-See the [successful Windows build](https://github.com/Macwelshman/CS2-Settings-Generator/actions/runs/33795645383)
-for its downloadable `CS2-Settings-Generator-Windows` artifact (GitHub sign-in
-may be required).
+The current source includes three additions not yet published as a new release:
+
+- **Window files:** `_Wio` and `_Wim` opaque windows, plus `_Wif` frosted
+  windows, including their LOD1 and LOD2 variants.
+- **Decals:** per-asset **Standard asset / Decal** selection, optional normal
+  opacity, and shared textures in the same `settings.json`.
+- **Software updates:** launch-time and manual checks, verified downloads,
+  restart and replacement recovery.
+
+Use the latest successful `main` Windows packaging run on the
+[builds page](https://github.com/Macwelshman/CS2-Settings-Generator/actions/workflows/ci.yml)
+and download its `CS2-Settings-Generator-Windows` artifact (GitHub sign-in may
+be required). Test builds still display **0.1.3** and are distinct from the
+older published 0.1.3 binary. The earlier build `1c597cb` was reported working
+in UTM, but did not include the additional window-file changes.
 
 ## Download and install
 
@@ -128,6 +136,13 @@ and [update packaging notes](docs/SOFTWARE_UPDATES.md) for maintainers.
 - A generated shared-texture path must resolve to a real file.
 
 ## Validation
+
+Recognised window sub-meshes include `_Win`, `_Wio`, `_Wim` and `_Wif`, with
+`_LOD1` and `_LOD2` before the window suffix (for example,
+`House_LOD1_Wio.fbx`). `_Wio` and `_Wim` are labelled opaque windows; `_Wif`
+is labelled frosted windows. They are grouped with their parent asset, not
+treated as separate main meshes, and do not create shared-texture redirects
+of their own. The internal mesh-name check still applies.
 
 The scanner will report import-readiness warnings alongside settings generation:
 

@@ -42,6 +42,8 @@ The downloaded ZIP passed its integrity check and matched its SHA-256 sidecar;
 the executable was verified as a Windows x64 GUI binary. The user subsequently
 reported the build working in UTM. This is user-reported app testing, not
 evidence of a complete newer-release installation or live rollback test.
+That earlier build did not contain the subsequently integrated `_Wio`/`_Wim`/
+`_Wif` window changes; use a newer `main` packaging artifact to test those.
 
 The test package retains version `0.1.3`; it has not been published as a new
 release. Give the eventual release a newer, consistently applied version so
