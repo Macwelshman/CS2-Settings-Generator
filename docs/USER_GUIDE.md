@@ -180,6 +180,24 @@ Common supported maps include `BaseColor`, `ControlMask`, `MaskMap`, `Normal`,
 
 ## Choose a texture set manually
 
+For example:
+
+| FBX | Main material | Result |
+| --- | --- | --- |
+| House 1/House 1.fbx | House 1 | Uses House 1 textures in its own folder. |
+| House 2/House 2.fbx | House 1 | Shares the textures from the House 1 asset folder. |
+| House 3/House 3.fbx | House 3 | Searches the scanned asset folders for House 3 textures; blocks generation if absent. |
+
+For House 2, generated entries include
+`"House 2_BaseColor.png": "../House 1/House 1_BaseColor.png"` and
+`"House 2_LOD1_BaseColor.png": "../House 1/House 1_BaseColor.png"`.
+The same rule applies to the other recognised maps. The texture provider must
+be an asset folder containing its own main FBX.
+
+If you intentionally want to use a texture set whose name differs from the
+material name, select it manually. Neither the asset's filename nor a lone
+available texture set causes that substitution automatically.
+
 Use the **Main + LOD1 texture set** menu—or **Decal texture set** for a selected
 decal—when automatic detection cannot decide between multiple texture
 providers, or when differently named assets share a material and texture set.

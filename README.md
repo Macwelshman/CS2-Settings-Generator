@@ -88,6 +88,12 @@ warnings, blocking errors, and proposed `settings.json` content.
 
 ### 4. Generate the files
 
+For example, `House 2.fbx` with material `House 1` shares textures such as
+`House 1_BaseColor.png` from the House 1 asset folder. A `House 3` material
+requires a `House 3` texture set somewhere in the scanned asset folders;
+otherwise generation is blocked. A differently named texture set can still be
+used through an explicit manual selection. LOD1 inherits the chosen main set.
+
 For decal assets, first change **Asset type** from **Standard asset** to
 **Decal**. Review the **Decal texture set** and optionally enable **Override
 normal opacity**. BaseColor, MaskMap and Normal are required. Decal import
