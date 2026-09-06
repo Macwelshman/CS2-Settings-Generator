@@ -39,7 +39,11 @@ fn sign_texture_override_resolves_shared_sign_assets_without_affecting_local_set
         })
         .collect::<Vec<_>>();
 
-    assert_eq!(overrides.len(), 6, "six non-provider signs need overrides");
+    assert_eq!(
+        overrides.len(),
+        7,
+        "all seven signs use material SDNH Signs, so SDNH Sign requires manual selection"
+    );
 
     let resolved = scan_export_folder_with_overrides(&root, &overrides)
         .expect("San Diego overrides should scan");
@@ -91,7 +95,7 @@ fn sign_texture_override_resolves_shared_sign_assets_without_affecting_local_set
             .main_texture_set
             .as_ref()
             .map(|set| set.name.as_str()),
-        Some("San Diego Crematorium")
+        Some("San Diego Naval Hospital")
     );
 }
 

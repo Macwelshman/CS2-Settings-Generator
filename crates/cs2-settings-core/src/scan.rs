@@ -95,7 +95,7 @@ pub fn scan_export_folder_with_all_overrides(
     fbx_paths.sort();
     png_paths.sort();
 
-    let (texture_sets, texture_issues) = collect_texture_sets(&png_paths);
+    let (mut texture_sets, texture_issues) = collect_texture_sets(&png_paths);
     global_issues.extend(texture_issues);
 
     let mut grouped: BTreeMap<(PathBuf, String), Vec<(PathBuf, FbxKind)>> = BTreeMap::new();
@@ -116,6 +116,12 @@ pub fn scan_export_folder_with_all_overrides(
         .filter(|(_, files)| files.iter().any(|(_, kind)| *kind == FbxKind::Main))
         .map(|(key, _)| key.clone())
         .collect::<BTreeSet<_>>();
+
+    let asset_folders = main_assets
+        .iter()
+        .map(|(folder, _)| folder.clone())
+        .collect::<BTreeSet<_>>();
+    texture_sets = retain_importable_texture_sets(texture_sets, &asset_folders, &mut global_issues);
 
     for ((folder, asset_name), files) in &grouped {
         if !files.iter().any(|(_, kind)| *kind == FbxKind::Main) {
@@ -231,6 +237,30 @@ pub fn scan_export_folder_with_all_overrides(
     })
 }
 
+fn retain_importable_texture_sets(
+    texture_sets: Vec<TextureSet>,
+    asset_folders: &BTreeSet<PathBuf>,
+    issues: &mut Vec<Issue>,
+) -> Vec<TextureSet> {
+    texture_sets
+        .into_iter()
+        .filter(|texture_set| {
+            if asset_folders.contains(&texture_set.folder) {
+                return true;
+            }
+            issues.push(Issue::warning(
+                "textureSetOutsideAssetFolder",
+                format!(
+                    "Texture set “{}” is not inside an importable asset folder and cannot be used by CS2.",
+                    texture_set.name
+                ),
+                &texture_set.folder,
+            ));
+            false
+        })
+        .collect()
+}
+
 fn validate_decal_texture_set(
     texture_set: Option<&TextureSet>,
     asset_folder: &Path,
@@ -289,14 +319,6 @@ fn resolve_main_texture_set(
         ));
     }
 
-    let local = matching_sets(texture_sets, asset_name, TextureTier::Main)
-        .into_iter()
-        .filter(|set| set.folder == asset_folder)
-        .collect::<Vec<_>>();
-    if local.len() == 1 {
-        return Some(local[0].clone());
-    }
-
     if let Some(material_name) = material_name {
         let material_base = material_name.strip_suffix("_Mtl").unwrap_or(material_name);
         let matches = matching_sets(texture_sets, material_base, TextureTier::Main);
@@ -304,7 +326,7 @@ fn resolve_main_texture_set(
             return Some(matches[0].clone());
         }
         if matches.len() > 1 {
-            issues.push(Issue::warning(
+            issues.push(Issue::error(
                 "mainTextureSetAmbiguous",
                 format!(
                     "Material “{material_name}” matches multiple texture sets; choose the intended set."
@@ -315,9 +337,16 @@ fn resolve_main_texture_set(
         }
     }
 
-    issues.push(Issue::warning(
+    issues.push(Issue::error(
         "mainTextureSetUnresolved",
-        "No local texture set or unique material-name match was found for the main mesh.",
+        match material_name {
+            Some(material) => format!(
+                "No texture set matching FBX material “{material}” was found in an asset folder. Add the matching textures or explicitly select a texture set."
+            ),
+            None => format!(
+                "“{asset_name}” has no readable main FBX material name. A texture set cannot be matched automatically."
+            ),
+        },
         asset_folder,
     ));
     None
@@ -381,6 +410,47 @@ mod tests {
     use super::*;
 
     #[test]
+    fn house_materials_resolve_local_shared_and_missing_sets() {
+        let provider = PathBuf::from("/export/House 1");
+        let mut set = texture_set("House 1", &provider);
+        set.files.push(crate::model::TextureFile {
+            path: provider.join("House 1_BaseColor.png"),
+            kind: TextureKind::BaseColor,
+            width: Some(1024),
+            height: Some(1024),
+        });
+        let sets = vec![set];
+        for (name, material, expected) in [
+            ("House 1", "House 1", true),
+            ("House 2", "House 1", true),
+            ("House 3", "House 3", false),
+        ] {
+            let folder = PathBuf::from("/export").join(name);
+            let mut issues = Vec::new();
+            let resolved =
+                resolve_main_texture_set(name, &folder, Some(material), &sets, None, &mut issues);
+            assert_eq!(resolved.is_some(), expected);
+            let preview = build_settings_preview(
+                name,
+                &folder,
+                true,
+                false,
+                resolved.as_ref(),
+                None,
+                AssetType::Standard,
+                None,
+                &mut issues,
+            );
+            assert_eq!(preview.can_generate, expected);
+            if name == "House 2" {
+                assert!(preview.json.contains("House 2_BaseColor.png"));
+                assert!(preview.json.contains("House 2_LOD1_BaseColor.png"));
+                assert!(preview.json.contains("../House 1/House 1_BaseColor.png"));
+            }
+        }
+    }
+
+    #[test]
     fn explicit_override_selects_a_different_shared_texture_set() {
         let asset_folder = PathBuf::from("/export/SDNH Ambulance Sign");
         let sign_folder = PathBuf::from("/export/SDNH Sign");
@@ -407,7 +477,7 @@ mod tests {
     }
 
     #[test]
-    fn local_asset_textures_win_before_material_matching() {
+    fn material_match_wins_over_asset_named_local_textures() {
         let crematorium_folder = PathBuf::from("/export/San Diego Crematorium");
         let hospital_folder = PathBuf::from("/export/San Diego Naval Hospital");
         let texture_sets = vec![
@@ -424,10 +494,99 @@ mod tests {
             None,
             &mut issues,
         )
-        .expect("local texture set should resolve");
+        .expect("material texture set should resolve");
 
-        assert_eq!(resolved.name, "San Diego Crematorium");
+        assert_eq!(resolved.name, "San Diego Naval Hospital");
         assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn unrelated_local_texture_set_does_not_override_material_match() {
+        let asset_folder = PathBuf::from("/export/House A");
+        let other_folder = PathBuf::from("/export/House B");
+        let texture_sets = vec![
+            texture_set("Custom Brick", &asset_folder),
+            texture_set("House A Material", &other_folder),
+        ];
+        let mut issues = Vec::new();
+
+        let resolved = resolve_main_texture_set(
+            "House A",
+            &asset_folder,
+            Some("House A Material"),
+            &texture_sets,
+            None,
+            &mut issues,
+        )
+        .expect("the material name should match the remote provider");
+
+        assert_eq!(resolved.name, "House A Material");
+        assert_eq!(resolved.folder, other_folder);
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn sole_unrelated_texture_set_does_not_resolve_missing_material_textures() {
+        let asset_folder = PathBuf::from("/export/House A");
+        let provider_folder = PathBuf::from("/export/Texture Provider");
+        let texture_sets = vec![texture_set("Shared Brick", &provider_folder)];
+        let mut issues = Vec::new();
+
+        let resolved = resolve_main_texture_set(
+            "House A",
+            &asset_folder,
+            Some("House A Material"),
+            &texture_sets,
+            None,
+            &mut issues,
+        );
+
+        assert!(resolved.is_none());
+        assert_eq!(issues[0].code, "mainTextureSetUnresolved");
+        assert_eq!(issues[0].severity, crate::model::IssueSeverity::Error);
+    }
+
+    #[test]
+    fn multiple_importable_texture_sets_require_an_explicit_choice() {
+        let asset_folder = PathBuf::from("/export/House A");
+        let provider_folder = PathBuf::from("/export/Texture Provider");
+        let texture_sets = vec![
+            texture_set("Shared Brick", &provider_folder),
+            texture_set("Shared Stone", &provider_folder),
+        ];
+        let mut issues = Vec::new();
+
+        let resolved = resolve_main_texture_set(
+            "House A",
+            &asset_folder,
+            Some("House A Material"),
+            &texture_sets,
+            None,
+            &mut issues,
+        );
+
+        assert!(resolved.is_none());
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "mainTextureSetUnresolved");
+    }
+
+    #[test]
+    fn texture_sets_outside_asset_folders_are_not_available() {
+        let export_root = PathBuf::from("/export");
+        let provider_folder = PathBuf::from("/export/Texture Provider");
+        let asset_folders = BTreeSet::from([provider_folder.clone()]);
+        let texture_sets = vec![
+            texture_set("Loose Root Textures", &export_root),
+            texture_set("Imported Textures", &provider_folder),
+        ];
+        let mut issues = Vec::new();
+
+        let retained = retain_importable_texture_sets(texture_sets, &asset_folders, &mut issues);
+
+        assert_eq!(retained.len(), 1);
+        assert_eq!(retained[0].name, "Imported Textures");
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "textureSetOutsideAssetFolder");
     }
 
     #[test]

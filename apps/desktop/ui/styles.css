@@ -603,6 +603,13 @@ select {
   white-space: nowrap;
 }
 
+.texture-resolution-help {
+  margin: 7px 0 0;
+  color: #e7bd78;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
 .texture-source-status strong {
   color: var(--green);
   font-size: 11px;

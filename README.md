@@ -47,7 +47,7 @@ currently unsigned, so Windows may show a security warning during installation.
 
 ### 1. Prepare an export folder
 
-Place every asset folder and any shared texture folders beneath one overall
+Place every asset folder, including those providing shared textures, beneath one overall
 export folder. The scan is recursive, so textures do not need to be stored in
 the same folder as the FBX that uses them.
 
@@ -58,6 +58,7 @@ My Export/
 │   ├── Main Building_LOD1.fbx
 │   └── Main Building_LOD2.fbx
 └── Shared Building Textures/
+    ├── Shared Building Textures.fbx
     ├── Shared Building Textures_BaseColor.png
     ├── Shared Building Textures_MaskMap.png
     └── Shared Building Textures_Normal.png
@@ -75,8 +76,11 @@ Select an asset to review its detected main mesh, LODs, texture mappings,
 warnings, blocking errors, and proposed `settings.json` content.
 
 - LOD1 always uses the main mesh's texture set.
+- Shared textures must live in a folder containing a main FBX so that CS2 imports
+  them. The main FBX material name identifies the matching texture-set basename.
 - LOD2 can use an independent texture set.
-- Local asset-named textures take priority over shared textures.
+- Missing material-name matches block generation; unrelated local textures
+  are never used as a fallback.
 - If a shared texture match is ambiguous, choose the intended provider from
   **Main + LOD1 texture set**.
 - Use **Apply to other assets using…** when other non-local assets use the same

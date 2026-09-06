@@ -10,6 +10,12 @@ The user selects one overall export folder. The scanner searches recursively
 inside that folder and never creates a shared-texture reference to a file outside
 it.
 
+The overall export folder is an organisational scan boundary, not a folder that
+CS2 imports. A usable texture provider must therefore be an Asset Folder: it
+must contain an unsuffixed main FBX as well as the shared textures. Loose
+textures directly in the overall export folder are reported but never offered
+as settings-file sources.
+
 Each folder containing an unsuffixed main `.fbx` is treated as an Asset Folder.
 A preview is produced for `<Asset Folder>/settings.json`.
 
@@ -72,8 +78,12 @@ set.
 ## Shared-texture rules
 
 - LOD1 always shares the main mesh's texture set.
-- If the main texture set is local and named for the asset, main entries are not
-  required, but LOD1 aliases are still generated.
+- Match the main FBX material name to a texture-set basename across asset
+  folders. Folder names and FBX filenames do not override this match.
+- Missing or ambiguous material matches block generation until resolved.
+  An unrelated local set or the only available set is never a fallback.
+- Local textures named for the asset require no main aliases; LOD1 aliases
+  are always generated when an LOD1 mesh exists.
 - If the main texture set is external, both main and LOD1 aliases are generated.
 - Local LOD2 textures with exact expected filenames need no aliases.
 - External LOD2 textures are added using relative paths.
@@ -98,10 +108,11 @@ path-resolution rules as other assets.
 
 ## Automatic matching
 
-1. Prefer a local texture set whose basename matches the asset.
-2. Otherwise match the main FBX's single material name to a texture-set basename,
+1. Match the main FBX's material name to a texture-set basename,
    allowing the documented `_Mtl` material suffix.
+2. Missing or multiple matches require user review; manual selection is an
+   explicit override. LOD1 inherits the selected main set.
 3. Prefer an LOD2 set belonging to the selected main texture provider.
 4. If exactly one LOD2 texture set exists in the export folder, it can be chosen
    automatically.
-5. Multiple candidates remain unresolved for user review.
+5. Multiple LOD2 candidates remain unresolved for user review.

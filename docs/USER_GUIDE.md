@@ -63,6 +63,7 @@ My Export/
 │   ├── Main Building_LOD1.fbx
 │   └── Main Building_LOD2.fbx
 ├── Building Textures/
+│   ├── Building Textures.fbx
 │   ├── Building Textures_BaseColor.png
 │   ├── Building Textures_MaskMap.png
 │   └── Building Textures_Normal.png
@@ -71,6 +72,7 @@ My Export/
 │   │   ├── Sign A.fbx
 │   │   └── Sign A_LOD1.fbx
 │   └── Shared Sign Textures/
+│       ├── Shared Sign Textures.fbx
 │       ├── Shared Sign Textures_BaseColor.png
 │       ├── Shared Sign Textures_MaskMap.png
 │       └── Shared Sign Textures_Normal.png
@@ -158,12 +160,19 @@ app.
 
 The scanner follows these rules:
 
-- Textures already stored beside an asset under its own required name are
-  local and take priority.
+- The main FBX material name must match a texture-set basename in an asset
+  folder anywhere within the scan. An asset's folder or filename does not
+  override its material name.
 - LOD1 always uses the same texture set as the main mesh.
 - LOD2 can use a separate LOD2 texture set.
 - If textures are stored elsewhere, the generated JSON uses a portable
   relative path with `/` separators.
+- Shared textures must be stored in an asset folder containing a main FBX. The
+  overall export folder is only used to organise the scan and cannot supply
+  textures to CS2 directly.
+- Missing or ambiguous material matches produce a blocking error. An unrelated
+  texture set is never assigned automatically, even if it is the only set.
+- **Main + LOD1 texture set** provides an explicit manual override when needed.
 - Missing texture destinations are never written to the generated file.
 
 Common supported maps include `BaseColor`, `ControlMask`, `MaskMap`, `Normal`,

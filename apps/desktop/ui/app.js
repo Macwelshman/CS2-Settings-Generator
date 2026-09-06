@@ -414,6 +414,9 @@ function mainTextureEditor(asset) {
     : asset.assetType === "decal"
       ? "No texture set is currently available for this decal."
       : "No texture set is currently available for the main mesh and LOD1.";
+  const noTextureHelp = textureSets.length
+    ? "Automatic matching could not choose safely. Select a discovered texture set above; it will be used by both the main mesh and LOD1."
+    : "No usable PNG texture sets were found. Shared textures must be inside a folder containing a main FBX so CS2 imports them; loose textures in the overall export folder cannot be referenced.";
   const applyLabel = !material
     ? "No main material available"
     : !asset.mainTextureSet
@@ -440,8 +443,9 @@ function mainTextureEditor(asset) {
         <strong>${escapeHtml(asset.mainTextureSet?.name || "Not resolved")}</strong>
         <span>${escapeHtml(sourceDetails)}</span>
       </div>
+      ${asset.mainTextureSet ? "" : `<p class="texture-resolution-help">${escapeHtml(noTextureHelp)}</p>`}
       <div class="texture-editor-actions">
-        <p>Local asset-named textures take priority automatically. Manual choices affect only this scan and generation run.</p>
+        <p>Automatic detection matches the FBX material name to the texture set name across asset folders. Main and LOD1 share that set. Manual selection explicitly overrides this match.</p>
         <button id="apply-texture-by-material" class="button button-quiet" ${applyTargets.length ? "" : "disabled"}>
           ${escapeHtml(applyLabel)}
         </button>
@@ -479,6 +483,7 @@ function bindTextureSourceControls(asset) {
       `Applied ${asset.mainTextureSet.name} to ${targets.length} asset${targets.length === 1 ? "" : "s"} using ${material}.`,
     );
   });
+
 }
 
 function textureOverrideFor(asset, textureSet) {
