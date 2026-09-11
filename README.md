@@ -7,21 +7,13 @@ generating the `settings.json` files required for shared textures and decals.
 [Download the latest release](https://github.com/Macwelshman/CS2-Settings-Generator/releases/latest)
 or read the detailed [User Guide](docs/USER_GUIDE.md).
 
-The current source includes three additions not yet published as a new release:
+Version **0.1.5** adds project-wide texture selection and parent-folder LOD2
+inheritance. Select a shared texture set once for the whole project, with
+individual asset overrides and automatic material matching still available.
 
-- **Window files:** `_Wio` and `_Wim` opaque windows, plus `_Wif` frosted
-  windows, including their LOD1 and LOD2 variants.
-- **Decals:** per-asset **Standard asset / Decal** selection, optional normal
-  opacity, and shared textures in the same `settings.json`.
-- **Software updates:** launch-time and manual checks, verified downloads,
-  restart and replacement recovery.
-
-Use the latest successful `main` Windows packaging run on the
-[builds page](https://github.com/Macwelshman/CS2-Settings-Generator/actions/workflows/ci.yml)
-and download its `CS2-Settings-Generator-Windows` artifact (GitHub sign-in may
-be required). Test builds still display **0.1.3** and are distinct from the
-older published 0.1.3 binary. The earlier build `1c597cb` was reported working
-in UTM, but did not include the additional window-file changes.
+The release also includes opaque `_Wio`/`_Wim` and frosted `_Wif` windows,
+per-asset decal settings, and verified in-app software updates. Installers and
+update packages are available for **Apple Silicon macOS** and **Windows x64**.
 
 ## Download and install
 
@@ -47,28 +39,33 @@ currently unsigned, so Windows may show a security warning during installation.
 
 ### 1. Prepare an export folder
 
-Place every asset folder, including those providing shared textures, beneath one overall
-export folder. The scan is recursive, so textures do not need to be stored in
-the same folder as the FBX that uses them.
+Place the shared main textures at the top of your project, with each asset's
+LOD2 textures in its parent folder and the L1/L3/L5 variants beneath it. Existing
+layouts with textures inside asset folders continue to work.
 
 ```text
-My Export/
-├── Main Building/
-│   ├── Main Building.fbx
-│   ├── Main Building_LOD1.fbx
-│   └── Main Building_LOD2.fbx
-└── Shared Building Textures/
-    ├── Shared Building Textures.fbx
-    ├── Shared Building Textures_BaseColor.png
-    ├── Shared Building Textures_MaskMap.png
-    └── Shared Building Textures_Normal.png
+Project/
+├── Shared_BaseColor.png
+├── Shared_MaskMap.png
+├── Shared_Normal.png
+└── Asset 1/
+    ├── Asset 1_LOD2_BaseColor.png
+    ├── Asset 1_LOD2_MaskMap.png
+    ├── Asset 1_LOD2_Normal.png
+    ├── Asset 1 L1/  (main, LOD1 and LOD2 FBX files)
+    ├── Asset 1 L3/  (main, LOD1 and LOD2 FBX files)
+    └── Asset 1 L5/  (main, LOD1 and LOD2 FBX files)
 ```
+
+L1/L3/L5 are separate asset levels; they are not mesh LOD numbers.
 
 ### 2. Scan the export
 
 Drag the overall export folder into the app, or select **Scan Export Folder…**.
 The app discovers asset folders, FBX variants, local textures, and shared
-texture providers.
+texture providers. Choose **Project main texture set** above the asset list to
+apply one main set across the project, or leave **Automatic detection per asset**
+selected to match each main FBX material name.
 
 ### 3. Review the results
 
@@ -76,9 +73,13 @@ Select an asset to review its detected main mesh, LODs, texture mappings,
 warnings, blocking errors, and proposed `settings.json` content.
 
 - LOD1 always uses the main mesh's texture set.
-- Shared textures must live in a folder containing a main FBX so that CS2 imports
-  them. The main FBX material name identifies the matching texture-set basename.
-- LOD2 can use an independent texture set.
+- Texture discovery includes the project root and parent folders. Automatic
+  matching uses the main FBX material name. **Project main texture set** applies
+  one set across assets; individual manual selections take priority.
+- Select the top-level project folder for bulk import in CS2, so shared
+  root textures and nested assets are included together.
+- LOD2 can use an independent texture set, inherited from the nearest parent
+  texture folder or chosen with **LOD2 texture set**.
 - Missing material-name matches block generation; unrelated local textures
   are never used as a fallback.
 - If a shared texture match is ambiguous, choose the intended provider from

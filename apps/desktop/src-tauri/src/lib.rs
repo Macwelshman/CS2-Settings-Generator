@@ -15,11 +15,13 @@ fn scan_export_folder(
     path: String,
     texture_overrides: Vec<TextureSetOverride>,
     asset_settings_overrides: Vec<AssetSettingsOverride>,
+    texture_options: Option<cs2_settings_core::TextureOptions>,
 ) -> Result<ScanResult, String> {
-    cs2_settings_core::scan_export_folder_with_all_overrides(
+    cs2_settings_core::scan_export_folder_with_texture_options(
         &PathBuf::from(path),
         &texture_overrides,
         &asset_settings_overrides,
+        &texture_options.unwrap_or_default(),
     )
     .map_err(|error| error.to_string())
 }
@@ -30,12 +32,14 @@ fn generate_settings(
     replace_existing: bool,
     texture_overrides: Vec<TextureSetOverride>,
     asset_settings_overrides: Vec<AssetSettingsOverride>,
+    texture_options: Option<cs2_settings_core::TextureOptions>,
 ) -> Result<GenerationReport, String> {
-    cs2_settings_core::generate_settings_files_with_all_overrides(
+    cs2_settings_core::generate_settings_files_with_texture_options(
         &PathBuf::from(path),
         replace_existing,
         &texture_overrides,
         &asset_settings_overrides,
+        &texture_options.unwrap_or_default(),
     )
     .map_err(|error| error.to_string())
 }

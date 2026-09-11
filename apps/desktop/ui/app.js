@@ -6,6 +6,8 @@ const state = {
   scan: null,
   selectedIndex: 0,
   textureOverrides: new Map(),
+  projectMain: null,
+  lod2Overrides: new Map(),
   assetSettingsOverrides: new Map(),
   busy: false,
 };
@@ -21,6 +23,7 @@ const elements = {
   clearScan: document.querySelector("#clear-scan"),
   rescan: document.querySelector("#rescan"),
   summary: document.querySelector("#summary"),
+  projectTextures: document.querySelector("#project-textures"),
   assetCount: document.querySelector("#asset-count"),
   assetList: document.querySelector("#asset-list"),
   assetDetail: document.querySelector("#asset-detail"),
@@ -73,6 +76,8 @@ async function scanFolder(folder, resetOverrides = false) {
   const selectedFolder = state.scan?.assets[state.selectedIndex]?.folder;
   if (resetOverrides) {
     state.textureOverrides.clear();
+    state.projectMain = null;
+    state.lod2Overrides.clear();
     state.assetSettingsOverrides.clear();
   }
   setBusy(true, "Scanning FBX and texture files…");
@@ -80,6 +85,7 @@ async function scanFolder(folder, resetOverrides = false) {
     const scan = await invoke("scan_export_folder", {
       path: folder,
       textureOverrides: serializedTextureOverrides(),
+      textureOptions: { projectMain: state.projectMain, lod2Overrides: [...state.lod2Overrides.values()] },
       assetSettingsOverrides: serializedAssetSettingsOverrides(),
     });
     state.root = scan.root;
@@ -87,6 +93,9 @@ async function scanFolder(folder, resetOverrides = false) {
     const validFolders = new Set(scan.assets.map((asset) => asset.folder));
     for (const assetFolder of state.textureOverrides.keys()) {
       if (!validFolders.has(assetFolder)) state.textureOverrides.delete(assetFolder);
+    }
+    for (const assetFolder of state.lod2Overrides.keys()) {
+      if (!validFolders.has(assetFolder)) state.lod2Overrides.delete(assetFolder);
     }
     for (const assetFolder of state.assetSettingsOverrides.keys()) {
       if (!validFolders.has(assetFolder)) state.assetSettingsOverrides.delete(assetFolder);
@@ -110,6 +119,7 @@ async function generateSettings() {
       path: state.root,
       replaceExisting,
       textureOverrides: serializedTextureOverrides(),
+      textureOptions: { projectMain: state.projectMain, lod2Overrides: [...state.lod2Overrides.values()] },
       assetSettingsOverrides: serializedAssetSettingsOverrides(),
     });
     const counts = report.items.reduce((result, item) => {
@@ -126,6 +136,7 @@ async function generateSettings() {
       .filter(Boolean)
       .join(", ");
     showToast(summary || "No settings files required changes.");
+    setBusy(false);
     await scanFolder(state.root);
   } catch (error) {
     showToast(String(error));
@@ -140,6 +151,8 @@ function clearScan() {
   state.scan = null;
   state.selectedIndex = 0;
   state.textureOverrides.clear();
+  state.projectMain = null;
+  state.lod2Overrides.clear();
   state.assetSettingsOverrides.clear();
   elements.replaceExisting.checked = false;
   elements.workspace.classList.add("is-hidden");
@@ -158,7 +171,8 @@ function setBusy(busy, note = "") {
   elements.chooseButtons.forEach((button) => (button.disabled = busy));
   elements.clearScan.disabled = busy;
   elements.rescan.disabled = busy;
-  elements.generate.disabled = busy || !state.scan;
+  elements.generate.disabled = busy || !state.scan?.assets.some((asset) => asset.settings.canGenerate);
+  elements.workspace.querySelectorAll("select").forEach((select) => (select.disabled = busy));
   elements.generationNote.textContent = note;
 }
 
@@ -199,6 +213,7 @@ function render() {
     });
   });
 
+  renderProjectTextures();
   renderAssetDetail();
   elements.generationNote.textContent = `${readyCount} of ${scan.assets.length} assets ready`;
   elements.generate.disabled = state.busy || !readyCount;
@@ -269,7 +284,7 @@ function renderAssetDetail() {
 
     <h3 class="section-title">Texture sources</h3>
     ${mainTextureEditor(asset)}
-    ${asset.assetType === "decal" ? "" : `<div class="texture-grid texture-grid-secondary">${textureCard("LOD2", asset.lod2TextureSet)}</div>`}
+    ${asset.assetType === "decal" ? "" : `<div class="texture-grid texture-grid-secondary">${lod2TextureEditor(asset)}</div>`}
 
     <h3 class="section-title">Validation</h3>
     <div class="issue-list">${issues}</div>
@@ -387,6 +402,45 @@ function textureCard(label, textureSet) {
     </div>`;
 }
 
+function selectionOptions(tier, selection) {
+  const sets = state.scan.textureSets.map((set, index) => ({ set, index })).filter(({ set }) => set.tier === tier);
+  const matches = (set) => selection && set.folder === selection.textureSetFolder && set.name === selection.textureSetName;
+  const unavailable = selection && !sets.some(({ set }) => matches(set));
+  return (unavailable ? `<option value="missing" selected>Unavailable: ${escapeHtml(selection.textureSetName)}</option>` : "") + sets.map(({ set, index }) =>
+    `<option value="${index}" ${matches(set) ? "selected" : ""}>${escapeHtml(`${set.name} — ${relativeDisplayPath(state.scan.root, set.folder)}`)}</option>`
+  ).join("");
+}
+
+function renderProjectTextures() {
+  elements.projectTextures.innerHTML = `
+    <label class="texture-select-label" for="project-main-texture-set">Project main texture set</label>
+    <select id="project-main-texture-set" class="texture-select">
+      <option value="" ${state.projectMain ? "" : "selected"}>Automatic detection per asset</option>
+      ${selectionOptions("main", state.projectMain)}
+    </select>
+    <p class="texture-resolution-help">Choose once for the whole project. Each asset’s main mesh and LOD1 use this set unless you make a manual selection below. Choices are kept until you clear or reopen the project.</p>`;
+  elements.projectTextures.querySelector("select").addEventListener("change", async (event) => {
+    if (state.busy) return;
+    const set = event.target.value === "" ? null : state.scan.textureSets[Number(event.target.value)];
+    state.projectMain = set ? { textureSetFolder: set.folder, textureSetName: set.name } : null;
+    await scanFolder(state.root);
+  });
+}
+
+function lod2TextureEditor(asset) {
+  if (!asset.files.some((file) => file.kind === "lod2")) return textureCard("LOD2", null);
+  const selection = state.lod2Overrides.get(asset.folder);
+  return `<div class="texture-editor">
+    <label class="texture-select-label" for="lod2-texture-set">LOD2 texture set</label>
+    <select id="lod2-texture-set" class="texture-select">
+      <option value="" ${selection ? "" : "selected"}>Automatic detection (local, then parent folder)</option>
+      ${selectionOptions("lod2", selection)}
+    </select>
+    <span class="badge">${selection ? "Manual selection" : "Automatic"}</span>
+    ${textureCard("LOD2", asset.lod2TextureSet)}
+  </div>`;
+}
+
 function mainTextureEditor(asset) {
   const material = mainMaterialForAsset(asset);
   const textureSets = (state.scan?.textureSets ?? [])
@@ -400,7 +454,7 @@ function mainTextureEditor(asset) {
           textureSet.name === textureOverride.textureSetName,
       )?.index
     : undefined;
-  const automaticLabel = "Automatic detection";
+  const automaticLabel = state.projectMain ? "Use project selection" : "Automatic detection";
   const options = textureSets
     .map(({ textureSet, index }) => {
       const folder = relativeDisplayPath(state.scan.root, textureSet.folder);
@@ -408,7 +462,7 @@ function mainTextureEditor(asset) {
     })
     .join("");
   const applyTargets = materialApplyTargets(asset, material, asset.mainTextureSet);
-  const sourceMode = textureOverride ? "Manual selection" : "Automatic";
+  const sourceMode = textureOverride ? "Manual selection" : state.projectMain ? "Project selection" : "Automatic";
   const sourceDetails = asset.mainTextureSet
     ? `${asset.mainTextureSet.files.length} maps · ${asset.mainTextureSet.folder}`
     : asset.assetType === "decal"
@@ -416,7 +470,7 @@ function mainTextureEditor(asset) {
       : "No texture set is currently available for the main mesh and LOD1.";
   const noTextureHelp = textureSets.length
     ? "Automatic matching could not choose safely. Select a discovered texture set above; it will be used by both the main mesh and LOD1."
-    : "No usable PNG texture sets were found. Shared textures must be inside a folder containing a main FBX so CS2 imports them; loose textures in the overall export folder cannot be referenced.";
+    : "No usable PNG texture sets were found inside the project. Add textures to the project or an asset folder and rescan.";
   const applyLabel = !material
     ? "No main material available"
     : !asset.mainTextureSet
@@ -437,6 +491,7 @@ function mainTextureEditor(asset) {
       <label class="texture-select-label" for="main-texture-set">${asset.assetType === "decal" ? "Decal texture set" : "Main + LOD1 texture set"}</label>
       <select id="main-texture-set" class="texture-select">
         <option value="" ${selectedIndex === undefined ? "selected" : ""}>${escapeHtml(automaticLabel)}</option>
+        ${textureOverride && selectedIndex === undefined ? `<option value="missing" selected>Unavailable: ${escapeHtml(textureOverride.textureSetName)}</option>` : ""}
         ${options}
       </select>
       <div class="texture-source-status ${asset.mainTextureSet ? "" : "is-unresolved"}">
@@ -445,7 +500,7 @@ function mainTextureEditor(asset) {
       </div>
       ${asset.mainTextureSet ? "" : `<p class="texture-resolution-help">${escapeHtml(noTextureHelp)}</p>`}
       <div class="texture-editor-actions">
-        <p>Automatic detection matches the FBX material name to the texture set name across asset folders. Main and LOD1 share that set. Manual selection explicitly overrides this match.</p>
+        <p>Automatic detection matches the FBX material name to the texture set name inside the project. Main and LOD1 share that set. An asset’s manual selection takes priority over the project selection.</p>
         <button id="apply-texture-by-material" class="button button-quiet" ${applyTargets.length ? "" : "disabled"}>
           ${escapeHtml(applyLabel)}
         </button>
@@ -454,6 +509,17 @@ function mainTextureEditor(asset) {
 }
 
 function bindTextureSourceControls(asset) {
+  elements.assetDetail.querySelector("#lod2-texture-set")?.addEventListener("change", async (event) => {
+    if (state.busy) return;
+    const value = event.target.value;
+    if (value === "") state.lod2Overrides.delete(asset.folder);
+    else {
+      const set = state.scan.textureSets[Number(value)];
+      if (!set) return;
+      state.lod2Overrides.set(asset.folder, textureOverrideFor(asset, set));
+    }
+    await scanFolder(state.root);
+  });
   const select = elements.assetDetail.querySelector("#main-texture-set");
   select?.addEventListener("change", async () => {
     if (state.busy) return;
@@ -536,7 +602,7 @@ function isLocalExactTextureSet(asset) {
 function relativeDisplayPath(root, folder) {
   if (!root || !folder.startsWith(root)) return folder;
   const relative = folder.slice(root.length).replace(/^[/\\]+/, "");
-  return relative || ".";
+  return relative || "Project root";
 }
 
 function summaryCard(value, label, status = "") {

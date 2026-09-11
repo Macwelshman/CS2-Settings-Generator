@@ -49,6 +49,20 @@ pub fn scan_export_folder_with_all_overrides(
     texture_overrides: &[TextureSetOverride],
     asset_settings_overrides: &[AssetSettingsOverride],
 ) -> Result<ScanResult, ScanError> {
+    scan_export_folder_with_texture_options(
+        root,
+        texture_overrides,
+        asset_settings_overrides,
+        &crate::TextureOptions::default(),
+    )
+}
+
+pub fn scan_export_folder_with_texture_options(
+    root: &Path,
+    texture_overrides: &[TextureSetOverride],
+    asset_settings_overrides: &[AssetSettingsOverride],
+    texture_options: &crate::TextureOptions,
+) -> Result<ScanResult, ScanError> {
     let root = fs::canonicalize(root).map_err(|error| {
         ScanError::new(format!(
             "Could not open export folder {}: {error}",
@@ -95,7 +109,7 @@ pub fn scan_export_folder_with_all_overrides(
     fbx_paths.sort();
     png_paths.sort();
 
-    let (mut texture_sets, texture_issues) = collect_texture_sets(&png_paths);
+    let (texture_sets, texture_issues) = collect_texture_sets(&png_paths);
     global_issues.extend(texture_issues);
 
     let mut grouped: BTreeMap<(PathBuf, String), Vec<(PathBuf, FbxKind)>> = BTreeMap::new();
@@ -121,7 +135,6 @@ pub fn scan_export_folder_with_all_overrides(
         .iter()
         .map(|(folder, _)| folder.clone())
         .collect::<BTreeSet<_>>();
-    texture_sets = retain_importable_texture_sets(texture_sets, &asset_folders, &mut global_issues);
 
     for ((folder, asset_name), files) in &grouped {
         if !files.iter().any(|(_, kind)| *kind == FbxKind::Main) {
@@ -180,6 +193,15 @@ pub fn scan_export_folder_with_all_overrides(
             .find(|file| file.kind == FbxKind::Main)
             .and_then(|file| file.material_names.first().cloned());
 
+        let project_override =
+            texture_options
+                .project_main
+                .as_ref()
+                .map(|selection| TextureSetOverride {
+                    asset_folder: folder.clone(),
+                    texture_set_folder: selection.texture_set_folder.clone(),
+                    texture_set_name: selection.texture_set_name.clone(),
+                });
         let main_texture_set = resolve_main_texture_set(
             &asset_name,
             &folder,
@@ -187,18 +209,33 @@ pub fn scan_export_folder_with_all_overrides(
             &texture_sets,
             texture_overrides
                 .iter()
-                .find(|texture_override| texture_override.asset_folder == folder),
+                .find(|texture_override| texture_override.asset_folder == folder)
+                .or(project_override.as_ref()),
             &mut issues,
         );
-        let lod2_texture_set = resolve_lod2_texture_set(
-            &asset_name,
-            &folder,
-            main_texture_set.as_ref(),
-            &texture_sets,
-            has_lod2,
-            &mut issues,
-        );
-
+        let lod2_override = texture_options
+            .lod2_overrides
+            .iter()
+            .find(|selection| selection.asset_folder == folder);
+        let lod2_texture_set = if has_lod2 && lod2_override.is_some() {
+            resolve_selected_texture_set(
+                lod2_override.unwrap(),
+                TextureTier::Lod2,
+                &texture_sets,
+                &folder,
+                &mut issues,
+            )
+        } else {
+            resolve_lod2_texture_set(
+                &asset_name,
+                &folder,
+                main_texture_set.as_ref(),
+                &texture_sets,
+                has_lod2,
+                &asset_folders,
+                &mut issues,
+            )
+        };
         if asset_type == AssetType::Decal {
             validate_decal_texture_set(main_texture_set.as_ref(), &folder, &mut issues);
         }
@@ -237,28 +274,26 @@ pub fn scan_export_folder_with_all_overrides(
     })
 }
 
-fn retain_importable_texture_sets(
-    texture_sets: Vec<TextureSet>,
-    asset_folders: &BTreeSet<PathBuf>,
+fn resolve_selected_texture_set(
+    selection: &TextureSetOverride,
+    tier: TextureTier,
+    texture_sets: &[TextureSet],
+    asset_folder: &Path,
     issues: &mut Vec<Issue>,
-) -> Vec<TextureSet> {
-    texture_sets
-        .into_iter()
-        .filter(|texture_set| {
-            if asset_folders.contains(&texture_set.folder) {
-                return true;
-            }
-            issues.push(Issue::warning(
-                "textureSetOutsideAssetFolder",
-                format!(
-                    "Texture set “{}” is not inside an importable asset folder and cannot be used by CS2.",
-                    texture_set.name
-                ),
-                &texture_set.folder,
-            ));
-            false
-        })
-        .collect()
+) -> Option<TextureSet> {
+    if let Some(set) = texture_sets.iter().find(|set| {
+        set.tier == tier
+            && set.folder == selection.texture_set_folder
+            && set.name == selection.texture_set_name
+    }) {
+        return Some(set.clone());
+    }
+    issues.push(Issue::error(
+        "textureSelectionUnavailable",
+        format!("Selected texture set “{}” is unavailable. Choose another set or restore automatic detection.", selection.texture_set_name),
+        asset_folder,
+    ));
+    None
 }
 
 fn validate_decal_texture_set(
@@ -302,21 +337,13 @@ fn resolve_main_texture_set(
     issues: &mut Vec<Issue>,
 ) -> Option<TextureSet> {
     if let Some(texture_override) = texture_override {
-        if let Some(texture_set) = texture_sets.iter().find(|texture_set| {
-            texture_set.tier == TextureTier::Main
-                && texture_set.folder == texture_override.texture_set_folder
-                && texture_set.name == texture_override.texture_set_name
-        }) {
-            return Some(texture_set.clone());
-        }
-        issues.push(Issue::warning(
-            "mainTextureOverrideUnavailable",
-            format!(
-                "The selected texture set “{}” is no longer available; automatic resolution was used instead.",
-                texture_override.texture_set_name
-            ),
+        return resolve_selected_texture_set(
+            texture_override,
+            TextureTier::Main,
+            texture_sets,
             asset_folder,
-        ));
+            issues,
+        );
     }
 
     if let Some(material_name) = material_name {
@@ -341,7 +368,7 @@ fn resolve_main_texture_set(
         "mainTextureSetUnresolved",
         match material_name {
             Some(material) => format!(
-                "No texture set matching FBX material “{material}” was found in an asset folder. Add the matching textures or explicitly select a texture set."
+                "No texture set matching FBX material “{material}” was found inside the project. Add the matching textures or explicitly select a texture set."
             ),
             None => format!(
                 "“{asset_name}” has no readable main FBX material name. A texture set cannot be matched automatically."
@@ -358,6 +385,7 @@ fn resolve_lod2_texture_set(
     main_set: Option<&TextureSet>,
     texture_sets: &[TextureSet],
     has_lod2: bool,
+    asset_folders: &BTreeSet<PathBuf>,
     issues: &mut Vec<Issue>,
 ) -> Option<TextureSet> {
     if !has_lod2 {
@@ -372,8 +400,26 @@ fn resolve_lod2_texture_set(
         return Some(local[0].clone());
     }
 
+    // Search only ancestors, never another asset group's parent folder.
+    for parent in asset_folder.ancestors().skip(1) {
+        let candidates = texture_sets
+            .iter()
+            .filter(|set| set.tier == TextureTier::Lod2 && set.folder == parent)
+            .collect::<Vec<_>>();
+        if candidates.len() == 1 {
+            return Some(candidates[0].clone());
+        }
+        if candidates.len() > 1 {
+            issues.push(Issue::error("lod2TextureSetAmbiguous", "Multiple LOD2 sets exist in the nearest parent texture folder; choose the intended set.", asset_folder));
+            return None;
+        }
+    }
+
     if let Some(main_set) = main_set {
-        let matching_provider = matching_sets(texture_sets, &main_set.name, TextureTier::Lod2);
+        let matching_provider = matching_sets(texture_sets, &main_set.name, TextureTier::Lod2)
+            .into_iter()
+            .filter(|set| set.folder == main_set.folder)
+            .collect::<Vec<_>>();
         if matching_provider.len() == 1 {
             return Some(matching_provider[0].clone());
         }
@@ -381,14 +427,14 @@ fn resolve_lod2_texture_set(
 
     let all_lod2 = texture_sets
         .iter()
-        .filter(|set| set.tier == TextureTier::Lod2)
+        .filter(|set| set.tier == TextureTier::Lod2 && asset_folders.contains(&set.folder))
         .cloned()
         .collect::<Vec<_>>();
     if all_lod2.len() == 1 {
         return Some(all_lod2[0].clone());
     }
     if all_lod2.len() > 1 {
-        issues.push(Issue::warning(
+        issues.push(Issue::error(
             "lod2TextureSetAmbiguous",
             "Multiple LOD2 texture sets are available; choose the intended shared set.",
             asset_folder,
@@ -568,25 +614,6 @@ mod tests {
         assert!(resolved.is_none());
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].code, "mainTextureSetUnresolved");
-    }
-
-    #[test]
-    fn texture_sets_outside_asset_folders_are_not_available() {
-        let export_root = PathBuf::from("/export");
-        let provider_folder = PathBuf::from("/export/Texture Provider");
-        let asset_folders = BTreeSet::from([provider_folder.clone()]);
-        let texture_sets = vec![
-            texture_set("Loose Root Textures", &export_root),
-            texture_set("Imported Textures", &provider_folder),
-        ];
-        let mut issues = Vec::new();
-
-        let retained = retain_importable_texture_sets(texture_sets, &asset_folders, &mut issues);
-
-        assert_eq!(retained.len(), 1);
-        assert_eq!(retained[0].name, "Imported Textures");
-        assert_eq!(issues.len(), 1);
-        assert_eq!(issues[0].code, "textureSetOutsideAssetFolder");
     }
 
     #[test]

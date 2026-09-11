@@ -658,7 +658,7 @@ dependencies = [
 
 [[package]]
 name = "cs2-settings-cli"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "cs2-settings-core",
  "serde_json",
@@ -666,7 +666,7 @@ dependencies = [
 
 [[package]]
 name = "cs2-settings-core"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "serde",
  "serde_json",
@@ -676,7 +676,7 @@ dependencies = [
 
 [[package]]
 name = "cs2-settings-desktop"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "cs2-settings-core",
  "plist",

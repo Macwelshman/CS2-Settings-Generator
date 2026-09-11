@@ -17,14 +17,10 @@ preserved unless you explicitly enable replacement.
 Download the newest version from the
 [GitHub Releases page](https://github.com/Macwelshman/CS2-Settings-Generator/releases/latest).
 
-**Development-build note:** the additional window-file support, decal workflow
-and updater described below have not yet been published as a new release.
-Use the latest successful `main` Windows packaging run on the
-[builds page](https://github.com/Macwelshman/CS2-Settings-Generator/actions/workflows/ci.yml)
-and download its `CS2-Settings-Generator-Windows` artifact. Downloading may
-require GitHub sign-in. These test builds still show **0.1.3**, but differ from
-the older published installer. The earlier build `1c597cb` was reported working
-in UTM; it did not yet contain the additional window-file changes.
+This guide covers **version 0.1.5** for Apple Silicon macOS and Windows x64.
+The release includes project-wide main texture selection, parent-folder LOD2
+inheritance, individual texture overrides, window-file support, decals, and
+in-app updates.
 
 ### macOS
 
@@ -53,8 +49,9 @@ any running copy before manually installing a test build.
 ## Prepare the export folder
 
 Place the asset folders you want to process beneath one overall export folder.
-The app scans that folder recursively, so shared textures can sit in a separate
-asset folder from the FBX files that use them.
+The app scans that folder recursively. Shared textures can sit in the project
+root, an intermediate parent folder, or another asset folder. For the nested
+L1/L3/L5 layout, see [Share project textures across nested assets](#share-project-textures-across-nested-assets).
 
 ```text
 My Export/
@@ -160,16 +157,15 @@ app.
 
 The scanner follows these rules:
 
-- The main FBX material name must match a texture-set basename in an asset
-  folder anywhere within the scan. An asset's folder or filename does not
+- The main FBX material name must match a texture-set basename
+  anywhere within the project. An asset's folder or filename does not
   override its material name.
 - LOD1 always uses the same texture set as the main mesh.
 - LOD2 can use a separate LOD2 texture set.
 - If textures are stored elsewhere, the generated JSON uses a portable
   relative path with `/` separators.
-- Shared textures must be stored in an asset folder containing a main FBX. The
-  overall export folder is only used to organise the scan and cannot supply
-  textures to CS2 directly.
+- Texture sets in the project root and intermediate parent folders are available.
+  Select the top-level project folder for bulk import in CS2.
 - Missing or ambiguous material matches produce a blocking error. An unrelated
   texture set is never assigned automatically, even if it is the only set.
 - **Main + LOD1 texture set** provides an explicit manual override when needed.
@@ -177,6 +173,46 @@ The scanner follows these rules:
 
 Common supported maps include `BaseColor`, `ControlMask`, `MaskMap`, `Normal`,
 `Emissive`, and indexed emissive maps.
+
+## Share project textures across nested assets
+
+Select the top-level `Project` folder to include all textures and asset levels.
+Use **Project main texture set** above the asset list to select one shared set.
+Every asset's main mesh and LOD1 use this choice unless that asset has a manual
+selection in **Main + LOD1 texture set**. Choose **Automatic detection per asset**
+to return the project to material-name matching.
+
+```text
+Project/
+  Shared_BaseColor.png
+  Shared_MaskMap.png
+  Shared_Normal.png
+  Asset 1/
+    Asset 1_LOD2_BaseColor.png
+    Asset 1_LOD2_MaskMap.png
+    Asset 1_LOD2_Normal.png
+    Asset 1 L1/   (FBX files)
+    Asset 1 L3/   (FBX files)
+    Asset 1 L5/   (FBX files)
+```
+
+Each level uses the root main set and automatically inherits the single LOD2 set
+in `Asset 1`, unless it has its own exact local LOD2 set. L1/L3/L5 are separate
+asset levels, not mesh LOD numbers. **LOD2 texture set** lets you override the
+choice for an individual asset. Multiple sets in the nearest parent texture
+folder require a manual choice; another asset group's loose LOD2 set is never
+used as a global fallback.
+
+For example, `Asset 1 L1/settings.json` can reference main maps through
+`../../Shared_BaseColor.png` and LOD2 through `../Asset 1_LOD2_BaseColor.png`.
+The app does not move, copy, resize, or rename textures. In CS2, select the
+top-level `Project` folder for bulk import so the shared textures and nested
+assets are included together.
+
+Selections remain during rescans and generation, and new assets inherit the
+project choice. Clearing or reopening the project resets selections. If a chosen
+set disappears, generation blocks until you select a replacement or return to
+automatic detection.
 
 ## Choose a texture set manually
 
@@ -191,8 +227,7 @@ For example:
 For House 2, generated entries include
 `"House 2_BaseColor.png": "../House 1/House 1_BaseColor.png"` and
 `"House 2_LOD1_BaseColor.png": "../House 1/House 1_BaseColor.png"`.
-The same rule applies to the other recognised maps. The texture provider must
-be an asset folder containing its own main FBX.
+The same rule applies to the other recognised maps. This existing example uses an asset folder as its texture provider.
 
 If you intentionally want to use a texture set whose name differs from the
 material name, select it manually. Neither the asset's filename nor a lone

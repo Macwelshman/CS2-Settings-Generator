@@ -18,6 +18,21 @@ pub struct TextureSetOverride {
     pub texture_set_name: String,
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextureOptions {
+    pub project_main: Option<TextureSelection>,
+    #[serde(default)]
+    pub lod2_overrides: Vec<TextureSetOverride>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextureSelection {
+    pub texture_set_folder: PathBuf,
+    pub texture_set_name: String,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetSettingsOverride {

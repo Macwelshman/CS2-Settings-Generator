@@ -33,21 +33,18 @@ The first release containing this utility must be installed manually once. In-ap
 
 ## Validation commands
 
-### Current validation status
+### Release validation
 
-The Windows x64 updater build at commit `1c597cb` passed the macOS and Windows
-test jobs and Windows packaging in
-[workflow run 33795645383](https://github.com/Macwelshman/CS2-Settings-Generator/actions/runs/33795645383).
-The downloaded ZIP passed its integrity check and matched its SHA-256 sidecar;
-the executable was verified as a Windows x64 GUI binary. The user subsequently
-reported the build working in UTM. This is user-reported app testing, not
-evidence of a complete newer-release installation or live rollback test.
-That earlier build did not contain the subsequently integrated `_Wio`/`_Wim`/
-`_Wif` window changes; use a newer `main` packaging artifact to test those.
+Version **0.1.5** contains the project texture-selection changes and uses the
+existing update-package contract. Version 0.1.4 and other updater-enabled copies
+can detect it through the latest stable GitHub release.
 
-The test package retains version `0.1.3`; it has not been published as a new
-release. Give the eventual release a newer, consistently applied version so
-existing updater-enabled copies can detect it.
+Both platforms are tested and packaged by the manual
+[Test and package workflow](https://github.com/Macwelshman/CS2-Settings-Generator/actions/workflows/ci.yml).
+Use the run matching the release commit when checking package provenance.
+Archive integrity, version, architecture, and published digests are release
+checks; they do not by themselves prove a live update-and-restart or rollback
+on a user's installation.
 
 ### Repeatable checks
 

@@ -35,6 +35,22 @@ pub fn generate_settings_files_with_all_overrides(
     generate_from_scan(scan, replace_existing)
 }
 
+pub fn generate_settings_files_with_texture_options(
+    root: &Path,
+    replace_existing: bool,
+    texture_overrides: &[TextureSetOverride],
+    asset_settings_overrides: &[AssetSettingsOverride],
+    texture_options: &crate::TextureOptions,
+) -> Result<GenerationReport, ScanError> {
+    let scan = crate::scan_export_folder_with_texture_options(
+        root,
+        texture_overrides,
+        asset_settings_overrides,
+        texture_options,
+    )?;
+    generate_from_scan(scan, replace_existing)
+}
+
 fn generate_from_scan(
     scan: crate::model::ScanResult,
     replace_existing: bool,
