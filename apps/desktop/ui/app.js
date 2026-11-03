@@ -36,6 +36,23 @@ const elements = {
 for (const button of elements.chooseButtons) {
   button.addEventListener("click", chooseFolder);
 }
+const restoreButton = document.querySelector("#restore-project");
+const relocateButton = document.querySelector("#relocate-project");
+const lastProjectKey = "cs2-settings:last-project";
+const profileKey = (root) => `cs2-settings:project:${root}`;
+restoreButton.disabled = relocateButton.disabled = !localStorage.getItem(lastProjectKey);
+relocateButton.addEventListener("click", async () => {
+  if (!invoke || state.busy) return;
+  const oldRoot = localStorage.getItem(lastProjectKey);
+  const saved = oldRoot && localStorage.getItem(profileKey(oldRoot));
+  if (!saved) return;
+  const folder = await invoke("choose_export_folder");
+  if (folder) await scanFolder(folder, true, saved);
+});
+restoreButton.addEventListener("click", () => {
+  const root = localStorage.getItem(lastProjectKey);
+  if (root) scanFolder(root, true);
+});
 elements.rescan.addEventListener("click", () => state.root && scanFolder(state.root));
 elements.clearScan.addEventListener("click", clearScan);
 elements.generate.addEventListener("click", generateSettings);
@@ -71,35 +88,48 @@ async function chooseFolder() {
   if (folder) await scanFolder(folder, true);
 }
 
-async function scanFolder(folder, resetOverrides = false) {
+async function scanFolder(folder, resetOverrides = false, relocatedProfile = null) {
   if (!invoke || state.busy) return;
   const selectedFolder = state.scan?.assets[state.selectedIndex]?.folder;
-  if (resetOverrides) {
-    state.textureOverrides.clear();
-    state.projectMain = null;
-    state.lod2Overrides.clear();
-    state.assetSettingsOverrides.clear();
-  }
   setBusy(true, "Scanning FBX and texture files…");
   try {
-    const scan = await invoke("scan_export_folder", {
-      path: folder,
-      textureOverrides: serializedTextureOverrides(),
-      textureOptions: { projectMain: state.projectMain, lod2Overrides: [...state.lod2Overrides.values()] },
-      assetSettingsOverrides: serializedAssetSettingsOverrides(),
+    const scanRequest = (path, choices) => invoke("scan_export_folder", {
+      path,
+      textureOverrides: choices.textureOverrides,
+      textureOptions: { projectMain: choices.projectMain, lod2Overrides: choices.lod2Overrides },
+      assetSettingsOverrides: choices.assetSettingsOverrides,
     });
+    const empty = { textureOverrides: [], lod2Overrides: [], assetSettingsOverrides: [], projectMain: null };
+    const initial = await scanRequest(folder, empty);
+    const existingProfile = resetOverrides ? localStorage.getItem(profileKey(initial.root)) : null;
+    if (relocatedProfile && existingProfile && existingProfile !== relocatedProfile) {
+      throw new Error("That folder already has saved choices. Open it with Scan Export Folder.");
+    }
+    const saved = relocatedProfile ?? existingProfile;
+    const choices = saved
+      ? ProjectProfiles.decode(JSON.parse(saved), initial.root)
+      : resetOverrides ? empty : projectChoices();
+    const active = activeChoices(choices, initial.assets);
+    const scan = active.projectMain || active.textureOverrides.length || active.lod2Overrides.length || active.assetSettingsOverrides.length
+      ? await scanRequest(initial.root, active) : initial;
     state.root = scan.root;
     state.scan = scan;
-    const validFolders = new Set(scan.assets.map((asset) => asset.folder));
-    for (const assetFolder of state.textureOverrides.keys()) {
-      if (!validFolders.has(assetFolder)) state.textureOverrides.delete(assetFolder);
+    state.projectMain = choices.projectMain;
+    for (const key of ["textureOverrides", "lod2Overrides", "assetSettingsOverrides"]) {
+      state[key] = new Map(choices[key].map((item) => [item.assetFolder, item]));
     }
-    for (const assetFolder of state.lod2Overrides.keys()) {
-      if (!validFolders.has(assetFolder)) state.lod2Overrides.delete(assetFolder);
+    if (resetOverrides) elements.replaceExisting.checked = false;
+    const missing = ["textureOverrides", "lod2Overrides", "assetSettingsOverrides"]
+      .flatMap((key) => choices[key].filter((item) => !active[key].includes(item)));
+    for (const item of new Map(missing.map((item) => [item.assetFolder, item])).values()) {
+      scan.globalIssues.push({ severity: "warning", path: item.assetFolder,
+        message: `Saved choices for “${item.assetName}” were kept but not applied. Restore the original FBX name and folder, or discard the stale choices before configuring the new asset.` });
+      for (const asset of scan.assets.filter((asset) => asset.folder === item.assetFolder)) {
+        asset.settings.canGenerate = false;
+        asset.issues.push({ severity: "error", code: "renamedAsset", message: "Review the saved choices for the renamed asset before generating." });
+      }
     }
-    for (const assetFolder of state.assetSettingsOverrides.keys()) {
-      if (!validFolders.has(assetFolder)) state.assetSettingsOverrides.delete(assetFolder);
-    }
+    saveProject();
     const preservedIndex = scan.assets.findIndex((asset) => asset.folder === selectedFolder);
     state.selectedIndex = preservedIndex >= 0 ? preservedIndex : 0;
     render();
@@ -110,17 +140,59 @@ async function scanFolder(folder, resetOverrides = false) {
   }
 }
 
+function savedChoice(map, asset) {
+  const choice = map.get(asset.folder);
+  return choice?.assetName === asset.name ? choice : undefined;
+}
+
+function projectChoices() {
+  return {
+    textureOverrides: serializedTextureOverrides(),
+    lod2Overrides: [...state.lod2Overrides.values()],
+    assetSettingsOverrides: serializedAssetSettingsOverrides(),
+    projectMain: state.projectMain,
+  };
+}
+
+function activeChoices(choices, assets) {
+  const active = { ...choices };
+  for (const key of ["textureOverrides", "lod2Overrides", "assetSettingsOverrides"]) {
+    active[key] = ProjectProfiles.partition(choices[key], assets);
+  }
+  return active;
+}
+
+function saveProject() {
+  try {
+    localStorage.setItem(profileKey(state.root), JSON.stringify(ProjectProfiles.encode(state.root, projectChoices())));
+    localStorage.setItem(lastProjectKey, state.root);
+  } catch (error) {
+    showToast(`Could not save project configuration: ${String(error)}`);
+  }
+}
+
 async function generateSettings() {
   if (!invoke || !state.root || state.busy) return;
+  const choices = projectChoices();
+  const active = activeChoices(choices, state.scan.assets);
+  if (["textureOverrides", "lod2Overrides", "assetSettingsOverrides"].some((key) =>
+    choices[key].some((item) => !active[key].includes(item) && state.scan.assets.some((asset) => asset.folder === item.assetFolder)))) {
+    showToast("Resolve saved choices for renamed assets before generating.");
+    return;
+  }
   const replaceExisting = elements.replaceExisting.checked;
   setBusy(true, "Generating settings files…");
   try {
     const report = await invoke("generate_settings", {
       path: state.root,
       replaceExisting,
-      textureOverrides: serializedTextureOverrides(),
-      textureOptions: { projectMain: state.projectMain, lod2Overrides: [...state.lod2Overrides.values()] },
-      assetSettingsOverrides: serializedAssetSettingsOverrides(),
+      reviewed: state.scan.assets.map(({ name, folder, settings }) => ({
+        name, folder, json: settings.json, canGenerate: settings.canGenerate,
+        existingFile: settings.existingFile, existingRevision: settings.existingRevision,
+      })),
+      textureOverrides: active.textureOverrides,
+      textureOptions: { projectMain: active.projectMain, lod2Overrides: active.lod2Overrides },
+      assetSettingsOverrides: active.assetSettingsOverrides,
     });
     const counts = report.items.reduce((result, item) => {
       result[item.action] = (result[item.action] || 0) + 1;
@@ -159,6 +231,7 @@ function clearScan() {
   elements.dropZone.classList.remove("is-hidden", "is-dragging");
   elements.folderPath.textContent = "";
   elements.summary.replaceChildren();
+  document.querySelector("#project-findings")?.remove();
   elements.assetList.replaceChildren();
   elements.assetDetail.replaceChildren();
   elements.assetCount.textContent = "";
@@ -168,6 +241,7 @@ function clearScan() {
 
 function setBusy(busy, note = "") {
   state.busy = busy;
+  restoreButton.disabled = relocateButton.disabled = busy || !localStorage.getItem(lastProjectKey);
   elements.chooseButtons.forEach((button) => (button.disabled = busy));
   elements.clearScan.disabled = busy;
   elements.rescan.disabled = busy;
@@ -213,6 +287,12 @@ function render() {
     });
   });
 
+  document.querySelector("#project-findings")?.remove();
+  if (scan.globalIssues.length) {
+    elements.summary.insertAdjacentHTML("afterend", `<details id="project-findings"><summary>Project import readiness (${scan.globalIssues.length})</summary>
+      <div class="issue-list">${scan.globalIssues.map((issue) => `<div class="issue"><strong>${escapeHtml(issue.severity)}:</strong>
+      ${escapeHtml(issue.message)} <small>${escapeHtml(issue.path ?? "")}</small></div>`).join("")}</div></details>`);
+  }
   renderProjectTextures();
   renderAssetDetail();
   elements.generationNote.textContent = `${readyCount} of ${scan.assets.length} assets ready`;
@@ -254,7 +334,7 @@ function renderAssetDetail() {
             (issue) => `
               <div class="issue ${issue.severity === "error" ? "issue-error" : ""}">
                 <strong>${issue.severity === "error" ? "Error" : "Warning"}:</strong>
-                ${escapeHtml(issue.message)}
+                ${escapeHtml(issue.message)} ${issue.path ? `<small>${escapeHtml(issue.path.split(/[\\/]/).pop())}</small>` : ""}
               </div>`,
           )
           .join("");
@@ -286,15 +366,40 @@ function renderAssetDetail() {
     ${mainTextureEditor(asset)}
     ${asset.assetType === "decal" ? "" : `<div class="texture-grid texture-grid-secondary">${lod2TextureEditor(asset)}</div>`}
 
-    <h3 class="section-title">Validation</h3>
+    <h3 class="section-title">Import Readiness</h3>
     <div class="issue-list">${issues}</div>
+    ${asset.issues.some((issue) => issue.code === "renamedAsset") ? '<button id="discard-stale" class="button button-secondary">Discard Choices for Previous Asset</button>' : ""}
 
     <h3 class="section-title">settings.json preview</h3>
-    <pre class="json-preview">${escapeHtml(asset.settings.json)}</pre>
+    ${asset.settings.existingFile ? `<details open>
+      <summary>Changes Only</summary>
+      <pre class="json-preview">${escapeHtml(formatChanges(asset.settings))}</pre>
+    </details>` : ""}
+    <details ${asset.settings.existingFile ? "" : "open"}>
+      <summary>Full JSON</summary>
+      <pre class="json-preview">${escapeHtml(asset.settings.json)}</pre>
+    </details>
   `;
 
+  elements.assetDetail.querySelector("#discard-stale")?.addEventListener("click", () => {
+    if (state.busy) return;
+    for (const map of [state.textureOverrides, state.lod2Overrides, state.assetSettingsOverrides]) {
+      if (!savedChoice(map, asset)) map.delete(asset.folder);
+    }
+    scanFolder(state.root);
+  });
   bindAssetTypeControls(asset);
   bindTextureSourceControls(asset);
+}
+
+function formatChanges(settings) {
+  if (settings.comparisonError) return settings.comparisonError;
+  return settings.changes?.map(({ action, path, before, after }) => {
+    const lines = [`${action[0].toUpperCase()}${action.slice(1)} ${path || "(document)"}`];
+    if (action !== "added") lines.push(`− ${JSON.stringify(before)}`);
+    if (action !== "removed") lines.push(`+ ${JSON.stringify(after)}`);
+    return lines.join("\n");
+  }).join("\n\n") || "No changes.";
 }
 
 function assetRow(asset, index) {
@@ -348,6 +453,7 @@ function bindAssetTypeControls(asset) {
       } else {
         state.assetSettingsOverrides.set(asset.folder, {
           assetFolder: asset.folder,
+          assetName: asset.name,
           assetType: "decal",
           normalOpacity: null,
         });
@@ -363,8 +469,9 @@ function bindAssetTypeControls(asset) {
     if (output) output.textContent = formatOpacity(Number(slider.value));
   });
   enabled?.addEventListener("change", async () => {
-    const current = state.assetSettingsOverrides.get(asset.folder) ?? {
+    const current = savedChoice(state.assetSettingsOverrides, asset) ?? {
       assetFolder: asset.folder,
+      assetName: asset.name,
       assetType: "decal",
       normalOpacity: null,
     };
@@ -376,6 +483,7 @@ function bindAssetTypeControls(asset) {
     if (!enabled?.checked) return;
     state.assetSettingsOverrides.set(asset.folder, {
       assetFolder: asset.folder,
+      assetName: asset.name,
       assetType: "decal",
       normalOpacity: Number(slider.value),
     });
@@ -418,9 +526,10 @@ function renderProjectTextures() {
       <option value="" ${state.projectMain ? "" : "selected"}>Automatic detection per asset</option>
       ${selectionOptions("main", state.projectMain)}
     </select>
-    <p class="texture-resolution-help">Choose once for the whole project. Each asset’s main mesh and LOD1 use this set unless you make a manual selection below. Choices are kept until you clear or reopen the project.</p>`;
+    <p class="texture-resolution-help">Choose once for the whole project. Each asset’s main mesh and LOD1 use this set unless you make a manual selection below. Choices are saved for this project on this computer.</p>`;
   elements.projectTextures.querySelector("select").addEventListener("change", async (event) => {
     if (state.busy) return;
+    if (event.target.value === "missing") return;
     const set = event.target.value === "" ? null : state.scan.textureSets[Number(event.target.value)];
     state.projectMain = set ? { textureSetFolder: set.folder, textureSetName: set.name } : null;
     await scanFolder(state.root);
@@ -429,7 +538,7 @@ function renderProjectTextures() {
 
 function lod2TextureEditor(asset) {
   if (!asset.files.some((file) => file.kind === "lod2")) return textureCard("LOD2", null);
-  const selection = state.lod2Overrides.get(asset.folder);
+  const selection = savedChoice(state.lod2Overrides, asset);
   return `<div class="texture-editor">
     <label class="texture-select-label" for="lod2-texture-set">LOD2 texture set</label>
     <select id="lod2-texture-set" class="texture-select">
@@ -446,7 +555,7 @@ function mainTextureEditor(asset) {
   const textureSets = (state.scan?.textureSets ?? [])
     .map((textureSet, index) => ({ textureSet, index }))
     .filter(({ textureSet }) => textureSet.tier === "main");
-  const textureOverride = state.textureOverrides.get(asset.folder);
+  const textureOverride = savedChoice(state.textureOverrides, asset);
   const selectedIndex = textureOverride
     ? textureSets.find(
         ({ textureSet }) =>
@@ -555,6 +664,7 @@ function bindTextureSourceControls(asset) {
 function textureOverrideFor(asset, textureSet) {
   return {
     assetFolder: asset.folder,
+    assetName: asset.name,
     textureSetFolder: textureSet.folder,
     textureSetName: textureSet.name,
   };

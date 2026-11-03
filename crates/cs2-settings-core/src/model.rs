@@ -128,6 +128,28 @@ pub enum FbxKind {
 }
 
 impl FbxKind {
+    pub(crate) fn lod_level(self) -> u8 {
+        match self {
+            Self::Lod1
+            | Self::Lod1Window
+            | Self::Lod1WioWindow
+            | Self::Lod1WimWindow
+            | Self::Lod1WifWindow
+            | Self::Lod1Glass
+            | Self::Lod1Grass
+            | Self::Lod1Water => 1,
+            Self::Lod2
+            | Self::Lod2Window
+            | Self::Lod2WioWindow
+            | Self::Lod2WimWindow
+            | Self::Lod2WifWindow
+            | Self::Lod2Glass
+            | Self::Lod2Grass
+            | Self::Lod2Water => 2,
+            _ => 0,
+        }
+    }
+
     pub fn is_lod1(self) -> bool {
         matches!(self, Self::Lod1)
     }
@@ -207,7 +229,19 @@ pub struct SettingsPreview {
     pub entries: Vec<SharedAssetEntry>,
     pub json: String,
     pub existing_file: bool,
+    pub changes: Option<Vec<SettingsChange>>,
+    pub existing_revision: Option<String>,
+    pub comparison_error: Option<String>,
     pub can_generate: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingsChange {
+    pub path: String,
+    pub before: Option<serde_json::Value>,
+    pub after: Option<serde_json::Value>,
+    pub action: &'static str,
 }
 
 #[derive(Clone, Debug, Serialize)]

@@ -17,6 +17,6 @@ pub use scan::{
     scan_export_folder_with_overrides, scan_export_folder_with_texture_options,
 };
 pub use write::{
-    generate_settings_files, generate_settings_files_with_all_overrides,
+    generate_from_scan, generate_settings_files, generate_settings_files_with_all_overrides,
     generate_settings_files_with_overrides, generate_settings_files_with_texture_options,
 };

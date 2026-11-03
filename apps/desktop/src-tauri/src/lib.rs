@@ -30,18 +30,33 @@ fn scan_export_folder(
 fn generate_settings(
     path: String,
     replace_existing: bool,
+    reviewed: Vec<serde_json::Value>,
     texture_overrides: Vec<TextureSetOverride>,
     asset_settings_overrides: Vec<AssetSettingsOverride>,
     texture_options: Option<cs2_settings_core::TextureOptions>,
 ) -> Result<GenerationReport, String> {
-    cs2_settings_core::generate_settings_files_with_texture_options(
-        &PathBuf::from(path),
-        replace_existing,
-        &texture_overrides,
-        &asset_settings_overrides,
-        &texture_options.unwrap_or_default(),
-    )
-    .map_err(|error| error.to_string())
+    let scan = scan_export_folder(
+        path,
+        texture_overrides,
+        asset_settings_overrides,
+        texture_options,
+    )?;
+    let current: Vec<_> = scan
+        .assets
+        .iter()
+        .map(|asset| {
+            serde_json::json!({
+                "name": asset.name, "folder": asset.folder, "json": asset.settings.json,
+                "canGenerate": asset.settings.can_generate,
+                "existingFile": asset.settings.existing_file,
+                "existingRevision": asset.settings.existing_revision,
+            })
+        })
+        .collect();
+    if current != reviewed {
+        return Err("The export folder or settings changed since the preview. Rescan and review the changes before generating.".into());
+    }
+    cs2_settings_core::generate_from_scan(scan, replace_existing).map_err(|error| error.to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

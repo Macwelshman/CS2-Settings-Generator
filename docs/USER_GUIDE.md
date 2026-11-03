@@ -17,7 +17,7 @@ preserved unless you explicitly enable replacement.
 Download the newest version from the
 [GitHub Releases page](https://github.com/Macwelshman/CS2-Settings-Generator/releases/latest).
 
-This guide covers **version 0.1.5** for Apple Silicon macOS and Windows x64.
+This guide covers **version 0.1.6** for Apple Silicon macOS and Windows x64.
 The release includes project-wide main texture selection, parent-folder LOD2
 inheritance, individual texture overrides, window-file support, decals, and
 in-app updates.

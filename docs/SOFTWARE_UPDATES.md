@@ -2,7 +2,7 @@
 
 The updater follows MW Combiner's public GitHub Releases / SHA-256 / staged replacement system. No credentials are included in the application.
 
-The app checks the latest stable release at launch. Automatic check failures are quiet; **Check for Updates…** reports failures and up-to-date status. A newer release offers **Update Now**, **View Release**, and **Later**. Updating restarts the app and discards the current scan and ungenerated choices, not export files. The confirmation makes this explicit.
+The app checks the latest stable release at launch. Automatic check failures are quiet; **Check for Updates…** reports failures and up-to-date status. A newer release offers **Update Now**, **View Release**, and **Later**. Updating restarts the app and closes the current scan. Restore Last Project can reopen saved choices. The confirmation makes this explicit.
 
 ## Publishing compatible packages
 
@@ -35,9 +35,8 @@ The first release containing this utility must be installed manually once. In-ap
 
 ### Release validation
 
-Version **0.1.5** contains the project texture-selection changes and uses the
-existing update-package contract. Version 0.1.4 and other updater-enabled copies
-can detect it through the latest stable GitHub release.
+Version **0.1.6** uses the existing update-package contract. Updater-enabled
+copies can detect it through the latest stable GitHub release.
 
 Both platforms are tested and packaged by the manual
 [Test and package workflow](https://github.com/Macwelshman/CS2-Settings-Generator/actions/workflows/ci.yml).

@@ -31,7 +31,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace
-      - run: node --test apps/desktop/tests/updates.test.cjs
+      - run: node --test apps/desktop/tests/updates.test.cjs apps/desktop/tests/project.test.cjs
 
   package:
     name: Package for ${{ matrix.os }}

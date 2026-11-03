@@ -113,6 +113,30 @@ fn nested_levels_share_root_main_and_their_own_parent_lod2() {
         generate_settings_files_with_texture_options(&p.0, false, &[], &[], &Default::default())
             .unwrap();
     assert_eq!(report.items.len(), 6);
+    assert!(
+        report
+            .items
+            .iter()
+            .all(|item| matches!(item.action, cs2_settings_core::GenerationAction::Generated)),
+        "{:?}",
+        report.items
+    );
+    for asset in &scan.assets {
+        let findings = asset
+            .issues
+            .iter()
+            .filter(|issue| issue.code == "fbxMaterialSlotCount")
+            .collect::<Vec<_>>();
+        assert_eq!(findings.len(), 1);
+        assert!(
+            findings[0]
+                .path
+                .as_ref()
+                .unwrap()
+                .to_string_lossy()
+                .ends_with("_LOD2.fbx")
+        );
+    }
     for asset in scan.assets {
         assert_eq!(
             fs::read_to_string(asset.folder.join("settings.json")).unwrap(),
@@ -238,5 +262,35 @@ fn lod2_stays_in_its_group_and_ambiguity_requires_manual_selection() {
             .unwrap()
             .folder,
         a
+    );
+}
+
+#[test]
+fn ambiguous_mesh_is_excluded_and_case_variant_keeps_its_parent() {
+    let project = Project::new();
+    let folder = project.asset("House", "1");
+    fs::copy(
+        folder.join("House 1_LOD1.fbx"),
+        folder.join("House 1_Wif_LOD1.fbx"),
+    )
+    .unwrap();
+    fs::rename(
+        folder.join("House 1_LOD1.fbx"),
+        folder.join("House 1_lod1.fbx"),
+    )
+    .unwrap();
+    let scan = scan_export_folder(&project.0).unwrap();
+    assert_eq!(scan.assets.len(), 1);
+    assert_eq!(scan.assets[0].files.len(), 3);
+    assert!(scan.assets[0].files.iter().any(|file| file.kind.is_lod1()));
+    assert!(
+        scan.global_issues
+            .iter()
+            .any(|issue| issue.code == "ambiguousFbxName")
+    );
+    assert!(
+        scan.global_issues
+            .iter()
+            .any(|issue| issue.code == "noncanonicalFbxName")
     );
 }

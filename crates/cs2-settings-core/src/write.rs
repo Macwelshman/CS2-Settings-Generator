@@ -51,7 +51,7 @@ pub fn generate_settings_files_with_texture_options(
     generate_from_scan(scan, replace_existing)
 }
 
-fn generate_from_scan(
+pub fn generate_from_scan(
     scan: crate::model::ScanResult,
     replace_existing: bool,
 ) -> Result<GenerationReport, ScanError> {

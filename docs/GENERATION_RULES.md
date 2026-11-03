@@ -42,6 +42,16 @@ Recognised shader sub-mesh suffixes:
 
 The same suffixes are recognised after `_LOD1` and `_LOD2`.
 
+To verify canonical FBX names against the shared exporter fixture, run:
+
+```sh
+cargo test -p cs2-settings-core classifies_shared_canonical_mesh_names -- --ignored
+```
+
+The test reads `tests/cs2_mesh_names.json` from a sibling `MW Batch Export Addon`
+checkout by default. Set `CS2_MESH_NAMING_FIXTURE` to the fixture's path for
+other layouts. It checks the asset and mesh kind of each valid canonical export.
+
 Every FBX should contain exactly one mesh object, and that object's name must
 match the FBX filename without the `.fbx` extension. A mismatch produces an
 import-readiness warning and does not modify the source FBX.
@@ -54,11 +64,17 @@ Decals do not require LOD1 or LOD2 meshes. Selecting **Decal** suppresses the
 standard missing-LOD1 warning and requires a main BaseColor, MaskMap, and Normal
 texture.
 
-Material names are read only to help identify texture providers. The app does
-not validate whether an FBX has a material, how many materials it has, or which
-FBX variants contain them. A material name does not need to match the FBX or
-mesh name, and multiple differently named meshes can correctly use a shared
-material such as `Belfort Van Ghent` or `Belfort Van Ghent Details`.
+Import Readiness checks material slots attached to mesh nodes. Standard main
+and LOD1 meshes expect one slot; LOD2, shader submeshes, and decals expect
+zero. Slot-count mismatches warn without preventing settings generation.
+A material name may still be shared across different meshes.
+
+Canonical suffixes match MW CS2 Batch Exporter. Case variants are accepted
+with a warning. Repeated, conflicting, or reordered terminal role suffixes
+are ambiguous and excluded; unsupported terminal LOD numbers and empty
+asset names are also excluded. Variants must share the exact asset stem and
+folder. Duplicate roles or multiple main assets competing for one output
+block settings generation in that folder.
 
 ## Texture recognition
 
@@ -123,6 +139,19 @@ path-resolution rules as other assets.
    LOD2 sets in other asset groups' parent folders are not global fallbacks.
 5. All explicit selections must refer to discovered sets of the correct tier
    inside the scan boundary. Main and LOD2 selections are independent.
-6. Desktop selections survive rescanning and generation, including newly added
-   assets inheriting the project selection. Clearing or reopening a project
-   resets the selections; they are not saved as a project configuration.
+6. Desktop selections are saved per canonical root, in a versioned local
+   profile. The scan root is absolute; selection folders inside it are relative.
+   The scan always includes subfolders and LOD2 defaults to automatic
+   inheritance unless an override is saved. The profile records the project
+   provider, per-asset main and LOD2 overrides, asset type and decal opacity.
+   Missing texture providers remain selected and require review. Missing or
+   renamed assets retain their choices without transferring them to a different
+   mesh. The replacement checkbox is reset when reopening a project.
+
+## Comparing existing settings
+
+Changes Only compares parsed JSON, ignoring formatting and object key order.
+It shows additions, removals and old/new values for modifications. Paths are
+JSON Pointers, and arrays are compared as whole values. Invalid or unreadable
+existing JSON is reported. Desktop generation checks that its current scan
+still matches the preview before writing.

@@ -1,7 +1,8 @@
 use crate::model::{
-    AssetType, Issue, IssueSeverity, SettingsPreview, SharedAssetEntry, TextureSet,
+    AssetType, Issue, IssueSeverity, SettingsChange, SettingsPreview, SharedAssetEntry, TextureSet,
 };
 use crate::pathing::portable_relative_path;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::Path;
 
 pub fn build_settings_preview(
@@ -73,6 +74,34 @@ pub fn build_settings_preview(
     }
 
     let json = render_settings_json(&entries, asset_type, normal_opacity);
+    let mut existing_revision = None;
+    let (changes, comparison_error) = if existing_file {
+        let existing = std::fs::read(&output_path);
+        if let Ok(bytes) = &existing {
+            let mut revision = DefaultHasher::new();
+            bytes.hash(&mut revision);
+            existing_revision = Some(format!("{:016x}", revision.finish()));
+        }
+        match existing
+            .map_err(|error| error.to_string())
+            .and_then(|bytes| {
+                serde_json::from_slice::<serde_json::Value>(&bytes)
+                    .map_err(|error| error.to_string())
+            }) {
+            Ok(before) => {
+                let after = serde_json::from_str(&json).expect("generated settings are JSON");
+                let mut changes = Vec::new();
+                compare_json(Some(&before), Some(&after), "", &mut changes);
+                (Some(changes), None)
+            }
+            Err(error) => (
+                None,
+                Some(format!("Could not compare existing settings.json: {error}")),
+            ),
+        }
+    } else {
+        (None, None)
+    };
     let can_generate = !issues
         .iter()
         .any(|issue| issue.severity == IssueSeverity::Error);
@@ -81,8 +110,73 @@ pub fn build_settings_preview(
         entries,
         json,
         existing_file,
+        changes,
+        existing_revision,
+        comparison_error,
         can_generate,
     }
+}
+
+fn compare_json(
+    before: Option<&serde_json::Value>,
+    after: Option<&serde_json::Value>,
+    path: &str,
+    changes: &mut Vec<SettingsChange>,
+) {
+    if before == after {
+        return;
+    }
+    if let (Some(serde_json::Value::Object(left)), Some(serde_json::Value::Object(right))) =
+        (before, after)
+    {
+        for key in left
+            .keys()
+            .chain(right.keys())
+            .collect::<std::collections::BTreeSet<_>>()
+        {
+            let escaped = key.replace('~', "~0").replace('/', "~1");
+            compare_json(
+                left.get(key),
+                right.get(key),
+                &format!("{path}/{escaped}"),
+                changes,
+            );
+        }
+        return;
+    }
+    changes.push(SettingsChange {
+        path: path.to_owned(),
+        before: before.cloned(),
+        after: after.cloned(),
+        action: match (before, after) {
+            (None, _) => "added",
+            (_, None) => "removed",
+            _ => "modified",
+        },
+    });
+}
+
+#[cfg(test)]
+#[test]
+fn settings_comparison_ignores_order_and_distinguishes_null_from_missing() {
+    use serde_json::json;
+    let before = json!({"sharedAssets": {"a/b": "old", "remove": null, "keep": 1}});
+    let after = json!({"sharedAssets": {"keep": 1, "a/b": "new", "add": null}});
+    let mut changes = Vec::new();
+    compare_json(Some(&before), Some(&after), "", &mut changes);
+    assert_eq!(
+        changes
+            .iter()
+            .map(|change| (change.path.as_str(), change.action))
+            .collect::<Vec<_>>(),
+        [
+            ("/sharedAssets/a~1b", "modified"),
+            ("/sharedAssets/add", "added"),
+            ("/sharedAssets/remove", "removed")
+        ]
+    );
+    assert_eq!(changes[1].after, Some(serde_json::Value::Null));
+    assert_eq!(changes[2].after, None);
 }
 
 fn append_entries(

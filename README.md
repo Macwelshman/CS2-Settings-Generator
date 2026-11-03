@@ -7,9 +7,8 @@ generating the `settings.json` files required for shared textures and decals.
 [Download the latest release](https://github.com/Macwelshman/CS2-Settings-Generator/releases/latest)
 or read the detailed [User Guide](docs/USER_GUIDE.md).
 
-Version **0.1.5** adds project-wide texture selection and parent-folder LOD2
-inheritance. Select a shared texture set once for the whole project, with
-individual asset overrides and automatic material matching still available.
+Version **0.1.6** adds saved project choices, an Import Readiness section,
+exporter-compatible FBX naming checks, and a Changes Only settings preview.
 
 The release also includes opaque `_Wio`/`_Wim` and frosted `_Wif` windows,
 per-asset decal settings, and verified in-app software updates. Installers and
@@ -105,6 +104,14 @@ Resolve any blocking errors, review the preview, then select **Generate Settings
 Files**. Each generated `settings.json` is written into its corresponding asset
 folder.
 
+For existing settings, **Changes Only** shows additions, removals, and modified
+values alongside the full JSON preview.
+
+Project texture and asset selections are saved on this computer. Use **Restore
+Last Project** to reopen them, or **Locate Moved Project…** to point the last
+profile at its relocated export folder. Missing providers and renamed assets
+are reported instead of silently switching choices.
+
 Existing settings files are preserved by default. Enable **Replace existing
 settings files** only when you intentionally want to overwrite them. **Clear**
 and **Rescan** never delete or modify FBX files or textures.
@@ -160,7 +167,7 @@ The scanner will report import-readiness warnings alongside settings generation:
 - Each FBX must contain one mesh object named exactly like the FBX file stem.
 - A material may be shared by differently named meshes; its name is used to
   resolve the correct texture provider, not compared with the mesh filename.
-- Material presence and material counts are not validated.
+- Standard main and LOD1 meshes should have one assigned material slot. LOD2, decals and shader submeshes should have none.
 - An explicit per-asset texture selection overrides automatic resolution.
   Material-wide application never replaces an asset's own local, asset-named
   texture set.

@@ -1,4 +1,4 @@
-use crate::fbx::{classify_fbx, inspect_fbx};
+use crate::fbx::{Naming, classify_fbx, inspect_fbx};
 use crate::model::{
     AssetScan, AssetSettingsOverride, AssetType, FbxFile, FbxKind, Issue, ScanResult, TextureKind,
     TextureSet, TextureSetOverride, TextureTier,
@@ -117,7 +117,24 @@ pub fn scan_export_folder_with_texture_options(
         let Some(stem) = path.file_stem().map(|value| value.to_string_lossy()) else {
             continue;
         };
-        let (asset_name, kind) = classify_fbx(&stem);
+        let (asset_name, kind, naming) = classify_fbx(&stem);
+        match naming {
+            Naming::Valid => {}
+            Naming::Noncanonical => global_issues.push(Issue::warning(
+                "noncanonicalFbxName",
+                "Use canonical suffix casing and rename the mesh object to match.",
+                &path,
+            )),
+            Naming::Ambiguous | Naming::Unsupported => {
+                let (code, label) = if naming == Naming::Ambiguous {
+                    ("ambiguousFbxName", "Ambiguous")
+                } else {
+                    ("unsupportedFbxName", "Unsupported")
+                };
+                global_issues.push(Issue::error(code, format!("{label} FBX filename. Use Asset[_LOD1|_LOD2][_Shader].fbx with one LOD and shader suffix at most."), &path));
+                continue;
+            }
+        }
         let folder = path.parent().unwrap_or(&root).to_path_buf();
         grouped
             .entry((folder, asset_name.to_owned()))
@@ -130,6 +147,11 @@ pub fn scan_export_folder_with_texture_options(
         .filter(|(_, files)| files.iter().any(|(_, kind)| *kind == FbxKind::Main))
         .map(|(key, _)| key.clone())
         .collect::<BTreeSet<_>>();
+
+    let mut output_counts = BTreeMap::new();
+    for (folder, _) in &main_assets {
+        *output_counts.entry(folder.clone()).or_insert(0) += 1;
+    }
 
     let asset_folders = main_assets
         .iter()
@@ -152,14 +174,9 @@ pub fn scan_export_folder_with_texture_options(
             .remove(&(folder.clone(), asset_name.clone()))
             .unwrap_or_default();
         let mut issues = Vec::new();
-        let mut files = Vec::<FbxFile>::new();
-        for (path, kind) in variants {
-            let (file, file_issues) = inspect_fbx(&path, kind);
-            files.push(file);
-            issues.extend(file_issues);
+        if output_counts[&folder] > 1 {
+            issues.push(Issue::error("multipleMainMeshes", "Multiple assets share one settings.json. Move each asset and its variants into its own folder.", &folder));
         }
-        files.sort_by_key(|file| (file.kind, file.path.clone()));
-
         let asset_settings_override = asset_settings_overrides
             .iter()
             .find(|asset_override| asset_override.asset_folder == folder);
@@ -168,6 +185,14 @@ pub fn scan_export_folder_with_texture_options(
             .unwrap_or(AssetType::Standard);
         let normal_opacity =
             asset_settings_override.and_then(|asset_override| asset_override.normal_opacity);
+
+        let mut files = Vec::<FbxFile>::new();
+        for (path, kind) in variants {
+            let (file, file_issues) = inspect_fbx(&path, kind, asset_type == AssetType::Decal);
+            files.push(file);
+            issues.extend(file_issues);
+        }
+        files.sort_by_key(|file| (file.kind, file.path.clone()));
 
         if let Some(value) = normal_opacity
             && !(0.0..=1.0).contains(&value)
@@ -187,6 +212,30 @@ pub fn scan_export_folder_with_texture_options(
                 "No LOD1 FBX was found. CS2 building assets require an LOD1 mesh.",
                 &folder,
             ));
+        }
+        if has_lod2 && !has_lod1 && asset_type == AssetType::Standard {
+            issues.push(Issue::warning(
+                "lod2WithoutLod1",
+                "LOD2 is present without LOD1. Export the matching LOD1 mesh.",
+                &folder,
+            ));
+        }
+        for file in &files {
+            let level = file.kind.lod_level();
+            if (level == 1 && !has_lod1) || (level == 2 && !has_lod2) {
+                issues.push(Issue::warning(
+                    "lodVariantWithoutMesh",
+                    "Export the matching unsuffixed shader-free LOD mesh alongside this variant.",
+                    &file.path,
+                ));
+            }
+            if files.iter().filter(|other| other.kind == file.kind).count() > 1 {
+                issues.push(Issue::error(
+                    "duplicateFbxRole",
+                    "More than one FBX has this asset role. Keep only the intended FBX.",
+                    &file.path,
+                ));
+            }
         }
         let main_material = files
             .iter()
