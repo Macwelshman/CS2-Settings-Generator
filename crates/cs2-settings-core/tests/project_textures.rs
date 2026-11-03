@@ -6,21 +6,25 @@ use cs2_settings_core::{
 use std::{
     fs,
     path::{Path, PathBuf},
+    sync::atomic::{AtomicUsize, Ordering},
     time::{SystemTime, UNIX_EPOCH},
 };
 
 struct Project(PathBuf);
 impl Project {
     fn new() -> Self {
+        // Concurrent tests can observe the same clock tick on CI.
+        static NEXT_PROJECT: AtomicUsize = AtomicUsize::new(0);
         let root = std::env::temp_dir().join(format!(
-            "cs2-project-textures-{}-{}",
+            "cs2-project-textures-{}-{}-{}",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            NEXT_PROJECT.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir_all(&root).unwrap();
+        fs::create_dir(&root).unwrap();
         Self(fs::canonicalize(root).unwrap())
     }
     fn texture(&self, folder: &str, name: &str) {
