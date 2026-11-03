@@ -210,9 +210,24 @@ top-level `Project` folder for bulk import so the shared textures and nested
 assets are included together.
 
 Selections remain during rescans and generation, and new assets inherit the
-project choice. Clearing or reopening the project resets selections. If a chosen
-set disappears, generation blocks until you select a replacement or return to
-automatic detection.
+project choice. If a chosen texture set disappears, the app keeps the selection
+and reports it as unavailable. Restore the set, select a replacement, or return
+to automatic detection.
+
+## Restore a saved project
+
+The app saves choices for each export folder on this computer, including the
+project texture provider, per-asset main and LOD2 overrides, asset type, and decal
+normal opacity. **Restore Last Project** reopens and rescans the most recently
+used project, then reapplies its saved choices. Try **Clear**, then **Restore
+Last Project** to see the difference. Restoring an already open project behaves
+like a rescan.
+
+If the last project folder moved, use **Locate Moved Project…** and select its new
+root. Keep the same relative folder layout so saved texture paths still resolve.
+If a main FBX was renamed in place, its previous choices are retained but not
+applied to the renamed asset. Restore the original filename, or select
+**Discard Choices for Previous Asset** and configure the renamed asset.
 
 ## Choose a texture set manually
 
@@ -250,16 +265,22 @@ generation run.
 
 ## Understand validation results
 
-Warnings identify files that should be reviewed but do not always prevent
-generation. Blocking errors prevent the affected asset from being generated
-until its texture relationship can be resolved safely.
+Select an asset and open its **Import Readiness** section. Warnings identify
+files to review; errors can prevent the affected asset from generating settings.
+Project-level findings include filenames the scanner could not group.
 
-The app checks that:
-
-- each FBX contains one mesh object whose name matches the FBX filename;
-- texture filenames and recognised suffixes are valid;
-- every proposed shared-texture destination exists;
-- ambiguous texture providers are not guessed silently.
+- Use the same asset stem and folder for main and LOD files. For example,
+  `House_lod1_wif.fbx` is recognized with a casing warning; rename it and its mesh
+  object to `House_LOD1_Wif`. A name like `House_Wif_LOD1.fbx` is excluded until
+  corrected because its suffixes are out of order.
+- Export one mesh object per FBX and match its name to the filename stem.
+- Use one material slot on standard main and LOD1 meshes. Remove material
+  slots from LOD2, decals and shader meshes such as `_Win`, `_Wif` and `_Wio`.
+- For standard building assets, export the corresponding LOD1 mesh. LOD2 is
+  optional, but if you export a shader variant at a given LOD, include the
+  corresponding mesh for that LOD.
+- Check that each shared texture destination exists. Choose a provider
+  explicitly when multiple texture sets match.
 
 For decals, the app additionally requires BaseColor, MaskMap, and Normal in the
 selected texture set. ControlMask and Emissive remain optional.
@@ -267,7 +288,10 @@ selected texture set. ControlMask and Emissive remain optional.
 ## Generate settings files
 
 1. Resolve any blocking errors.
-2. Review the `settings.json` preview for representative assets.
+2. For assets with existing settings, review **Changes Only** for added,
+   removed, and modified values. Open **Full JSON** to see the whole proposal.
+   If existing JSON is unreadable or invalid, the app explains why it cannot
+   compare it.
 3. Leave **Replace existing settings files** disabled to preserve existing
    files, or enable it only when you intend to overwrite them.
 4. Select **Generate Settings Files**.
@@ -314,8 +338,7 @@ while the decal import settings are still generated.
   selections.
 - **Clear** returns to the opening screen without deleting or modifying source
   files.
-- Choosing a different export folder starts a new scan and clears previous
-  manual selections.
+- Choosing a different export folder loads that folder’s saved choices, if any.
 - Existing settings files are skipped unless replacement is explicitly enabled.
 
 ## Troubleshooting
@@ -353,7 +376,7 @@ their texture sources, and review any invalid FBX or filename warnings.
 
 The app checks for a newer stable version when it opens. You can also select **Check for Updates…** in the toolbar (or the application menu on Mac).
 
-When an update is available, select **Update Now** to download, verify and install it, **View Release** to read the release page, or **Later** to dismiss the notice for this session. Updating restarts the app: finish generating any pending settings first. Your export files are not changed by the updater.
+When an update is available, select **Update Now** to download, verify and install it, **View Release** to read the release page, or **Later** to dismiss the notice for this session. Updating restarts the app: use **Restore Last Project** after it reopens to return to your saved choices. The updater does not change your export files.
 
 If the release has no compatible update package, use **View Release** to download its normal installer. Install the app in a writable location; Mac users should move it out of the downloaded disk image before updating.
 
@@ -367,7 +390,7 @@ Older versions without this utility need one manual installation of the first up
 3. If an update is offered, select **View Release** to review it, or **Update
    Now** and confirm the restart.
 4. The app downloads and verifies the package before closing. After a
-   successful replacement it reopens; scan your export folder again.
+   successful replacement it reopens; select **Restore Last Project**.
 
 **Later** dismisses the notice for this session. Automatic network-check
 failures are quiet; a manual check displays the error.
