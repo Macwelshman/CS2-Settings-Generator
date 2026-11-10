@@ -1,0 +1,296 @@
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanResult {
+    pub root: PathBuf,
+    pub assets: Vec<AssetScan>,
+    pub texture_sets: Vec<TextureSet>,
+    pub global_issues: Vec<Issue>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextureSetOverride {
+    pub asset_folder: PathBuf,
+    pub texture_set_folder: PathBuf,
+    pub texture_set_name: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextureOptions {
+    pub project_main: Option<TextureSelection>,
+    #[serde(default)]
+    pub lod2_overrides: Vec<TextureSetOverride>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextureSelection {
+    pub texture_set_folder: PathBuf,
+    pub texture_set_name: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetSettingsOverride {
+    pub asset_folder: PathBuf,
+    pub asset_type: AssetType,
+    pub normal_opacity: Option<f32>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AssetType {
+    Standard,
+    Decal,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerationReport {
+    pub root: PathBuf,
+    pub items: Vec<GenerationItem>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerationItem {
+    pub asset_name: String,
+    pub output_path: PathBuf,
+    pub action: GenerationAction,
+    pub message: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum GenerationAction {
+    Generated,
+    Replaced,
+    SkippedExisting,
+    SkippedInvalid,
+    Failed,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetScan {
+    pub name: String,
+    pub folder: PathBuf,
+    pub files: Vec<FbxFile>,
+    pub main_texture_set: Option<TextureSet>,
+    pub lod2_texture_set: Option<TextureSet>,
+    pub asset_type: AssetType,
+    pub normal_opacity: Option<f32>,
+    pub settings: SettingsPreview,
+    pub issues: Vec<Issue>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FbxFile {
+    pub path: PathBuf,
+    pub kind: FbxKind,
+    pub material_names: Vec<String>,
+    pub mesh_names: Vec<String>,
+    pub parse_error: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FbxKind {
+    Main,
+    Lod1,
+    Lod2,
+    Window,
+    WioWindow,
+    WimWindow,
+    WifWindow,
+    Glass,
+    Grass,
+    Water,
+    Lod1Window,
+    Lod1WioWindow,
+    Lod1WimWindow,
+    Lod1WifWindow,
+    Lod1Glass,
+    Lod1Grass,
+    Lod1Water,
+    Lod2Window,
+    Lod2WioWindow,
+    Lod2WimWindow,
+    Lod2WifWindow,
+    Lod2Glass,
+    Lod2Grass,
+    Lod2Water,
+}
+
+impl FbxKind {
+    pub(crate) fn lod_level(self) -> u8 {
+        match self {
+            Self::Lod1
+            | Self::Lod1Window
+            | Self::Lod1WioWindow
+            | Self::Lod1WimWindow
+            | Self::Lod1WifWindow
+            | Self::Lod1Glass
+            | Self::Lod1Grass
+            | Self::Lod1Water => 1,
+            Self::Lod2
+            | Self::Lod2Window
+            | Self::Lod2WioWindow
+            | Self::Lod2WimWindow
+            | Self::Lod2WifWindow
+            | Self::Lod2Glass
+            | Self::Lod2Grass
+            | Self::Lod2Water => 2,
+            _ => 0,
+        }
+    }
+
+    pub fn is_lod1(self) -> bool {
+        matches!(self, Self::Lod1)
+    }
+
+    pub fn is_lod2(self) -> bool {
+        matches!(self, Self::Lod2)
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextureSet {
+    pub name: String,
+    pub tier: TextureTier,
+    pub folder: PathBuf,
+    pub files: Vec<TextureFile>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TextureTier {
+    Main,
+    Lod2,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextureFile {
+    pub path: PathBuf,
+    pub kind: TextureKind,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TextureKind {
+    BaseColor,
+    ControlMask,
+    MaskMap,
+    Normal,
+    Emissive,
+    EmissiveIndexed(u8),
+    EmissiveId(u8),
+}
+
+impl TextureKind {
+    pub fn suffix(self) -> String {
+        match self {
+            Self::BaseColor => "BaseColor".into(),
+            Self::ControlMask => "ControlMask".into(),
+            Self::MaskMap => "MaskMap".into(),
+            Self::Normal => "Normal".into(),
+            Self::Emissive => "Emissive".into(),
+            Self::EmissiveIndexed(index) => format!("Emissive{index}"),
+            Self::EmissiveId(index) => format!("EmissiveID{index}"),
+        }
+    }
+
+    pub fn sort_order(self) -> (u8, u8) {
+        match self {
+            Self::BaseColor => (0, 0),
+            Self::ControlMask => (1, 0),
+            Self::Emissive => (2, 0),
+            Self::EmissiveIndexed(index) => (3, index),
+            Self::EmissiveId(index) => (4, index),
+            Self::MaskMap => (5, 0),
+            Self::Normal => (6, 0),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingsPreview {
+    pub output_path: PathBuf,
+    pub entries: Vec<SharedAssetEntry>,
+    pub json: String,
+    pub existing_file: bool,
+    pub changes: Option<Vec<SettingsChange>>,
+    pub existing_revision: Option<String>,
+    pub comparison_error: Option<String>,
+    pub can_generate: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingsChange {
+    pub path: String,
+    pub before: Option<serde_json::Value>,
+    pub after: Option<serde_json::Value>,
+    pub action: &'static str,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SharedAssetEntry {
+    pub shared_to: String,
+    pub shared_from: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Issue {
+    pub severity: IssueSeverity,
+    pub code: String,
+    pub message: String,
+    pub path: Option<PathBuf>,
+}
+
+impl Issue {
+    pub fn warning(
+        code: impl Into<String>,
+        message: impl Into<String>,
+        path: impl Into<PathBuf>,
+    ) -> Self {
+        Self {
+            severity: IssueSeverity::Warning,
+            code: code.into(),
+            message: message.into(),
+            path: Some(path.into()),
+        }
+    }
+
+    pub fn error(
+        code: impl Into<String>,
+        message: impl Into<String>,
+        path: impl Into<PathBuf>,
+    ) -> Self {
+        Self {
+            severity: IssueSeverity::Error,
+            code: code.into(),
+            message: message.into(),
+            path: Some(path.into()),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum IssueSeverity {
+    Warning,
+    Error,
+}

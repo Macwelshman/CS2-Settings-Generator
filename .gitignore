@@ -1,0 +1,25 @@
+.DS_Store
+
+# Local reference/export collections
+Belfort Van Ghent/
+
+# Rust and Tauri build output
+target/
+src-tauri/target/
+apps/desktop/src-tauri/icons/macos-compiled/
+
+# Frontend dependencies and build output
+node_modules/
+dist/
+apps/desktop/dist/
+
+# Easy-to-find local app and installer builds
+Builds/*
+!Builds/README.md
+
+# Local IDE and environment files
+.idea/
+.vscode/
+.env
+.env.*
+!.env.example

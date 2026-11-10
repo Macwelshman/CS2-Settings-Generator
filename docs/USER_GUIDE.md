@@ -1,0 +1,412 @@
+# CS2 Settings Generator User Guide
+
+<p align="center">
+  <img src="./images/app-icon-light.png" width="144" alt="CS2 Settings Generator Light icon">
+</p>
+
+CS2 Settings Generator scans a complete Cities: Skylines II asset export,
+checks its FBX and texture relationships, and creates the `settings.json` files
+needed when assets share textures. It can also add the import settings required
+for decal assets.
+
+The app never edits FBX files or textures. Existing `settings.json` files are
+preserved unless you explicitly enable replacement.
+
+## Download and install
+
+Download the newest version from the
+[GitHub Releases page](https://github.com/Macwelshman/CS2-Settings-Generator/releases/latest).
+
+This guide covers **version 0.1.6** for Apple Silicon macOS and Windows x64.
+The release includes project-wide main texture selection, parent-folder LOD2
+inheritance, individual texture overrides, window-file support, decals, and
+in-app updates.
+
+### macOS
+
+1. Download the Apple Silicon `.dmg` file.
+2. Open the disk image and drag **CS2 Settings Generator** to Applications.
+3. Open the app from Applications.
+
+The current build is ad-hoc signed rather than notarized. If macOS blocks the
+first launch, Control-click the app, choose **Open**, then confirm **Open**.
+
+### Windows
+
+1. Download the x64 setup `.exe` for a normal installation.
+2. Run the installer and follow its prompts.
+3. Open **CS2 Settings Generator** from the Start menu.
+
+An `.msi` installer is also supplied for managed deployment. The Windows build
+is currently unsigned, so Windows may display a security warning during the
+first installation.
+
+For a workflow test build, extract the downloaded artifact first, then run the
+`x64-setup.exe` inside it. Use the setup installer for initial installation;
+the separate `windows-x64.zip` is primarily the in-app update package. Close
+any running copy before manually installing a test build.
+
+## Prepare the export folder
+
+Place the asset folders you want to process beneath one overall export folder.
+The app scans that folder recursively. Shared textures can sit in the project
+root, an intermediate parent folder, or another asset folder. For the nested
+L1/L3/L5 layout, see [Share project textures across nested assets](#share-project-textures-across-nested-assets).
+
+```text
+My Export/
+├── Main Building/
+│   ├── Main Building.fbx
+│   ├── Main Building_LOD1.fbx
+│   └── Main Building_LOD2.fbx
+├── Building Textures/
+│   ├── Building Textures.fbx
+│   ├── Building Textures_BaseColor.png
+│   ├── Building Textures_MaskMap.png
+│   └── Building Textures_Normal.png
+├── Signs/
+│   ├── Sign A/
+│   │   ├── Sign A.fbx
+│   │   └── Sign A_LOD1.fbx
+│   └── Shared Sign Textures/
+│       ├── Shared Sign Textures.fbx
+│       ├── Shared Sign Textures_BaseColor.png
+│       ├── Shared Sign Textures_MaskMap.png
+│       └── Shared Sign Textures_Normal.png
+└── Decals/
+    └── Courtyard Marking/
+        ├── Courtyard Marking.fbx
+        ├── Courtyard Marking_BaseColor.png
+        ├── Courtyard Marking_MaskMap.png
+        └── Courtyard Marking_Normal.png
+```
+
+## Scan an export
+
+1. Open CS2 Settings Generator.
+2. Drag the overall export folder into the window, or select
+   **Scan Export Folder…**.
+3. Wait for the recursive scan to finish.
+4. Review the summary for asset folders, texture redirects, warnings, and
+   blocking errors.
+
+<p align="center">
+  <img src="./images/texture-set-mapping.png" width="900" alt="Texture-set selection for a multi-asset export">
+</p>
+
+Select an asset in the left column to inspect:
+
+- its detected FBX variants and material names;
+- the texture set used by the main mesh and LOD1;
+- the independently detected LOD2 texture set;
+- validation warnings or errors;
+- the proposed `settings.json` content.
+
+## Accepted window files
+
+Window sub-meshes are recognised alongside the main FBX:
+
+| File suffix | Type shown in the app |
+| --- | --- |
+| `_Win` | Window |
+| `_Wio` | Opaque Window (_Wio) |
+| `_Wim` | Opaque Window (_Wim) |
+| `_Wif` | Frosted Window (_Wif) |
+
+LOD variants are accepted too: for example, `House_LOD1_Wio.fbx`,
+`House_LOD2_Wim.fbx` and `House_LOD1_Wif.fbx`. Keep the parent asset name
+consistent. These files appear under their parent asset rather than as separate
+main assets, and do not need their own shared-texture entries in `settings.json`.
+
+Acceptance does not bypass validation: each file must still contain one mesh
+object named exactly like the filename without `.fbx`.
+
+## Choose the asset type
+
+Every detected asset initially uses **Standard asset**. This keeps the existing
+mesh and LOD texture-sharing behaviour unchanged.
+
+If the selected files are for a decal:
+
+1. Select the asset in the left column.
+2. Under **Asset type**, choose **Decal**.
+3. Check the automatically detected **Decal texture set**, or choose a shared
+   texture set manually.
+4. Resolve any missing BaseColor, MaskMap, or Normal errors.
+5. Review the combined `settings.json` preview.
+
+<p align="center">
+  <img src="./images/decal-settings.png" width="900" alt="Per-asset Standard asset and Decal settings">
+</p>
+
+The choice applies only to that asset, so standard assets and decals can be
+processed together in one overall export-folder scan. Decals do not require an
+LOD1 or LOD2 mesh, and the app does not show the standard missing-LOD1 warning
+for them.
+
+Selecting **Decal** adds the required `DefaultDecal` material template. Enable
+**Override normal opacity** only when you want to write `_NormalOpacity` into
+the settings file. A value of `0` lets the underlying surface normal show
+through; `1` uses the decal normal fully.
+
+Texture Area, Render Priority, Layer Mask, and Infoview Color are configured on
+the decal Render Prefab after importing into CS2. They are not written by this
+app.
+
+## How texture sets are resolved
+
+The scanner follows these rules:
+
+- The main FBX material name must match a texture-set basename
+  anywhere within the project. An asset's folder or filename does not
+  override its material name.
+- LOD1 always uses the same texture set as the main mesh.
+- LOD2 can use a separate LOD2 texture set.
+- If textures are stored elsewhere, the generated JSON uses a portable
+  relative path with `/` separators.
+- Texture sets in the project root and intermediate parent folders are available.
+  Select the top-level project folder for bulk import in CS2.
+- Missing or ambiguous material matches produce a blocking error. An unrelated
+  texture set is never assigned automatically, even if it is the only set.
+- **Main + LOD1 texture set** provides an explicit manual override when needed.
+- Missing texture destinations are never written to the generated file.
+
+Common supported maps include `BaseColor`, `ControlMask`, `MaskMap`, `Normal`,
+`Emissive`, and indexed emissive maps.
+
+## Share project textures across nested assets
+
+Select the top-level `Project` folder to include all textures and asset levels.
+Use **Project main texture set** above the asset list to select one shared set.
+Every asset's main mesh and LOD1 use this choice unless that asset has a manual
+selection in **Main + LOD1 texture set**. Choose **Automatic detection per asset**
+to return the project to material-name matching.
+
+```text
+Project/
+  Shared_BaseColor.png
+  Shared_MaskMap.png
+  Shared_Normal.png
+  Asset 1/
+    Asset 1_LOD2_BaseColor.png
+    Asset 1_LOD2_MaskMap.png
+    Asset 1_LOD2_Normal.png
+    Asset 1 L1/   (FBX files)
+    Asset 1 L3/   (FBX files)
+    Asset 1 L5/   (FBX files)
+```
+
+Each level uses the root main set and automatically inherits the single LOD2 set
+in `Asset 1`, unless it has its own exact local LOD2 set. L1/L3/L5 are separate
+asset levels, not mesh LOD numbers. **LOD2 texture set** lets you override the
+choice for an individual asset. Multiple sets in the nearest parent texture
+folder require a manual choice; another asset group's loose LOD2 set is never
+used as a global fallback.
+
+For example, `Asset 1 L1/settings.json` can reference main maps through
+`../../Shared_BaseColor.png` and LOD2 through `../Asset 1_LOD2_BaseColor.png`.
+The app does not move, copy, resize, or rename textures. In CS2, select the
+top-level `Project` folder for bulk import so the shared textures and nested
+assets are included together.
+
+Selections remain during rescans and generation, and new assets inherit the
+project choice. If a chosen texture set disappears, the app keeps the selection
+and reports it as unavailable. Restore the set, select a replacement, or return
+to automatic detection.
+
+## Restore a saved project
+
+The app saves choices for each export folder on this computer, including the
+project texture provider, per-asset main and LOD2 overrides, asset type, and decal
+normal opacity. **Restore Last Project** reopens and rescans the most recently
+used project, then reapplies its saved choices. Try **Clear**, then **Restore
+Last Project** to see the difference. Restoring an already open project behaves
+like a rescan.
+
+If the last project folder moved, use **Locate Moved Project…** and select its new
+root. Keep the same relative folder layout so saved texture paths still resolve.
+If a main FBX was renamed in place, its previous choices are retained but not
+applied to the renamed asset. Restore the original filename, or select
+**Discard Choices for Previous Asset** and configure the renamed asset.
+
+## Choose a texture set manually
+
+For example:
+
+| FBX | Main material | Result |
+| --- | --- | --- |
+| House 1/House 1.fbx | House 1 | Uses House 1 textures in its own folder. |
+| House 2/House 2.fbx | House 1 | Shares the textures from the House 1 asset folder. |
+| House 3/House 3.fbx | House 3 | Searches the scanned asset folders for House 3 textures; blocks generation if absent. |
+
+For House 2, generated entries include
+`"House 2_BaseColor.png": "../House 1/House 1_BaseColor.png"` and
+`"House 2_LOD1_BaseColor.png": "../House 1/House 1_BaseColor.png"`.
+The same rule applies to the other recognised maps. This existing example uses an asset folder as its texture provider.
+
+If you intentionally want to use a texture set whose name differs from the
+material name, select it manually. Neither the asset's filename nor a lone
+available texture set causes that substitution automatically.
+
+Use the **Main + LOD1 texture set** menu—or **Decal texture set** for a selected
+decal—when automatic detection cannot decide between multiple texture
+providers, or when differently named assets share a material and texture set.
+
+1. Select the affected asset.
+2. Open **Main + LOD1 texture set**.
+3. Choose the correct named texture set.
+4. If other non-local assets use the same FBX material, use **Apply to other
+   assets using…** to assign the choice to them together.
+5. Check that the blocking-error count returns to zero.
+
+Local asset-named textures are protected and are not replaced by a
+material-wide assignment. Manual selections last for the current scan and
+generation run.
+
+## Understand validation results
+
+Select an asset and open its **Import Readiness** section. Warnings identify
+files to review; errors can prevent the affected asset from generating settings.
+Project-level findings include filenames the scanner could not group.
+
+- Use the same asset stem and folder for main and LOD files. For example,
+  `House_lod1_wif.fbx` is recognized with a casing warning; rename it and its mesh
+  object to `House_LOD1_Wif`. A name like `House_Wif_LOD1.fbx` is excluded until
+  corrected because its suffixes are out of order.
+- Export one mesh object per FBX and match its name to the filename stem.
+- Use one material slot on standard main and LOD1 meshes. Remove material
+  slots from LOD2, decals and shader meshes such as `_Win`, `_Wif` and `_Wio`.
+- For standard building assets, export the corresponding LOD1 mesh. LOD2 is
+  optional, but if you export a shader variant at a given LOD, include the
+  corresponding mesh for that LOD.
+- Check that each shared texture destination exists. Choose a provider
+  explicitly when multiple texture sets match.
+
+For decals, the app additionally requires BaseColor, MaskMap, and Normal in the
+selected texture set. ControlMask and Emissive remain optional.
+
+## Generate settings files
+
+1. Resolve any blocking errors.
+2. For assets with existing settings, review **Changes Only** for added,
+   removed, and modified values. Open **Full JSON** to see the whole proposal.
+   If existing JSON is unreadable or invalid, the app explains why it cannot
+   compare it.
+3. Leave **Replace existing settings files** disabled to preserve existing
+   files, or enable it only when you intend to overwrite them.
+4. Select **Generate Settings Files**.
+5. Read the completion message for generated, replaced, preserved, unresolved,
+   or failed files.
+
+Each generated file is written inside its asset folder:
+
+```json
+{
+  "sharedAssets": {
+    "Sign A_BaseColor.png": "../Shared Sign Textures/Shared Sign Textures_BaseColor.png",
+    "Sign A_LOD1_BaseColor.png": "../Shared Sign Textures/Shared Sign Textures_BaseColor.png"
+  }
+}
+```
+
+For a decal using shared textures, both kinds of information are kept in that
+same file:
+
+```json
+{
+  "SurfacePostProcessor": {
+    "materialTemplate": "DefaultDecal",
+    "floatProperties": {
+      "_NormalOpacity": 0
+    }
+  },
+  "sharedAssets": {
+    "Courtyard Marking_BaseColor.png": "../Shared Decal Textures/Courtyard_BaseColor.png",
+    "Courtyard Marking_MaskMap.png": "../Shared Decal Textures/Courtyard_MaskMap.png",
+    "Courtyard Marking_Normal.png": "../Shared Decal Textures/Courtyard_Normal.png"
+  }
+}
+```
+
+If normal opacity is not overridden, the `floatProperties` block is omitted.
+If textures already have the correct local names, `sharedAssets` can be empty
+while the decal import settings are still generated.
+
+## Clear, rescan, and replacement safety
+
+- **Rescan** reads the same export folder again and keeps applicable manual
+  selections.
+- **Clear** returns to the opening screen without deleting or modifying source
+  files.
+- Choosing a different export folder loads that folder’s saved choices, if any.
+- Existing settings files are skipped unless replacement is explicitly enabled.
+
+## Troubleshooting
+
+### Textures could not be resolved
+
+Select the asset and choose the intended **Main + LOD1 texture set**. If several
+assets use the same FBX material, apply that choice to the other eligible
+assets.
+
+### An FBX reports a mesh object name warning
+
+In your 3D software, rename the mesh object to exactly match the FBX filename
+without the `.fbx` extension, then export the FBX again. For example,
+`Station_LOD1.fbx` must contain one mesh object named `Station_LOD1`.
+
+### A decal reports missing required textures
+
+Confirm that the selected **Decal texture set** contains matching PNG files for
+BaseColor, MaskMap, and Normal. If those textures live in another asset folder,
+choose that shared set from the menu; the app will add portable relative paths
+to the same decal `settings.json`.
+
+### Existing settings files were preserved
+
+This is the safe default. Enable **Replace existing settings files** only after
+reviewing the preview and deciding that the existing files should be replaced.
+
+### The Generate button is unavailable
+
+At least one scanned asset must be ready. Select assets showing errors, resolve
+their texture sources, and review any invalid FBX or filename warnings.
+
+## Software updates
+
+The app checks for a newer stable version when it opens. You can also select **Check for Updates…** in the toolbar (or the application menu on Mac).
+
+When an update is available, select **Update Now** to download, verify and install it, **View Release** to read the release page, or **Later** to dismiss the notice for this session. Updating restarts the app: use **Restore Last Project** after it reopens to return to your saved choices. The updater does not change your export files.
+
+If the release has no compatible update package, use **View Release** to download its normal installer. Install the app in a writable location; Mac users should move it out of the downloaded disk image before updating.
+
+Older versions without this utility need one manual installation of the first updater-enabled release. See [Software update packaging and recovery](SOFTWARE_UPDATES.md) for maintainer details.
+
+### What to expect
+
+1. Finish generating any pending settings files.
+2. Select **Check for Updates…**. If there is no newer stable release, the app
+   reports that you are up to date.
+3. If an update is offered, select **View Release** to review it, or **Update
+   Now** and confirm the restart.
+4. The app downloads and verifies the package before closing. After a
+   successful replacement it reopens; select **Restore Last Project**.
+
+**Later** dismisses the notice for this session. Automatic network-check
+failures are quiet; a manual check displays the error.
+
+### An update cannot be installed
+
+- If no matching package or valid checksum is available, use **View Release**
+  to find a normal installer. The app will not install an unverified download.
+- If the installation folder is not writable, move the Mac app to a writable
+  folder, or use the Windows installer to update an administrator-managed
+  installation. The updater does not request administrator privileges.
+- If downloading or verification fails, the current installation stays in
+  place. Retry later or use the release installer.
+- If replacement fails, the helper attempts to restore the previous app and
+  displays an error. If restoration also fails, keep the backup named in the
+  message and follow the [recovery notes](SOFTWARE_UPDATES.md#replacement-and-recovery).
+
+The successful UTM test confirms the test build was reported working; it does
+not establish that a complete upgrade to a newer release has been tested.
