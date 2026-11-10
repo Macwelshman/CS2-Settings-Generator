@@ -3,6 +3,57 @@ use std::path::PathBuf;
 pub mod updates;
 
 #[tauri::command]
+async fn open_project_profile() -> Result<Option<String>, String> {
+    let Some(file) = rfd::AsyncFileDialog::new()
+        .set_title("Import Project Profile")
+        .add_filter("Project Profile", &["json"])
+        .pick_file()
+        .await
+    else {
+        return Ok(None);
+    };
+    std::fs::read_to_string(file.path())
+        .map(Some)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn export_project_profile(contents: String) -> Result<bool, String> {
+    use std::io::Write;
+    let Some(file) = rfd::AsyncFileDialog::new()
+        .set_title("Export Project Profile")
+        .set_file_name("cs2-project-profile.json")
+        .add_filter("Project Profile", &["json"])
+        .save_file()
+        .await
+    else {
+        return Ok(false);
+    };
+    let path = file.path();
+    let mut temporary =
+        tempfile::NamedTempFile::new_in(path.parent().ok_or("Invalid export path")?)
+            .map_err(|error| error.to_string())?;
+    temporary
+        .write_all(contents.as_bytes())
+        .map_err(|error| error.to_string())?;
+    temporary.persist_noclobber(path).map_err(|error| {
+        format!("Could not export the profile. Choose an unused filename: {error}")
+    })?;
+    Ok(true)
+}
+
+#[tauri::command]
+async fn confirm_profile_replacement(window: tauri::WebviewWindow) -> bool {
+    rfd::AsyncMessageDialog::new()
+        .set_parent(&window)
+        .set_title("Replace saved project choices?")
+        .set_description("Importing this profile will replace the choices saved for the selected folder. Asset settings.json files will not change.")
+        .set_buttons(rfd::MessageButtons::YesNo)
+        .show()
+        .await == rfd::MessageDialogResult::Yes
+}
+
+#[tauri::command]
 fn choose_export_folder() -> Option<String> {
     rfd::FileDialog::new()
         .set_title("Select Folder to Scan")
@@ -101,6 +152,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             choose_export_folder,
+            open_project_profile,
+            export_project_profile,
+            confirm_profile_replacement,
             scan_export_folder,
             generate_settings,
             updates::check_for_updates,

@@ -51,6 +51,11 @@ select {
   backdrop-filter: blur(22px);
 }
 
+.toolbar > .folder-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .toolbar h1 {
   margin: 1px 0 0;
   font-size: 20px;

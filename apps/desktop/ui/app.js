@@ -10,6 +10,7 @@ const state = {
   lod2Overrides: new Map(),
   assetSettingsOverrides: new Map(),
   busy: false,
+  recoveryWarnings: [],
 };
 
 const elements = {
@@ -41,6 +42,37 @@ const relocateButton = document.querySelector("#relocate-project");
 const lastProjectKey = "cs2-settings:last-project";
 const profileKey = (root) => `cs2-settings:project:${root}`;
 restoreButton.disabled = relocateButton.disabled = !localStorage.getItem(lastProjectKey);
+const importButton = document.querySelector("#import-profile");
+const exportButton = document.querySelector("#export-profile");
+importButton.addEventListener("click", async () => {
+  if (!invoke || state.busy) return;
+  let folder, profile;
+  setBusy(true);
+  try {
+    profile = await invoke("open_project_profile");
+    if (profile !== null) {
+      JSON.parse(profile);
+      folder = await invoke("choose_export_folder");
+    }
+  } catch (error) {
+    showToast(`Could not open project profile: ${String(error)}`);
+  } finally {
+    setBusy(false);
+  }
+  if (folder) await scanFolder(folder, true, profile, true);
+});
+exportButton.addEventListener("click", async () => {
+  if (!invoke || !state.root || state.busy || state.recoveryWarnings.length) return;
+  setBusy(true);
+  try {
+    const contents = JSON.stringify(ProjectProfiles.encode(state.root, projectChoices(), state.scan), null, 2) + "\n";
+    if (await invoke("export_project_profile", { contents })) showToast("Project profile exported.");
+  } catch (error) {
+    showToast(String(error));
+  } finally {
+    setBusy(false);
+  }
+});
 relocateButton.addEventListener("click", async () => {
   if (!invoke || state.busy) return;
   const oldRoot = localStorage.getItem(lastProjectKey);
@@ -56,8 +88,6 @@ restoreButton.addEventListener("click", () => {
 elements.rescan.addEventListener("click", () => state.root && scanFolder(state.root));
 elements.clearScan.addEventListener("click", clearScan);
 elements.generate.addEventListener("click", generateSettings);
-
-initializeDragDrop();
 
 async function initializeDragDrop() {
   if (!appWebview?.onDragDropEvent) {
@@ -88,7 +118,7 @@ async function chooseFolder() {
   if (folder) await scanFolder(folder, true);
 }
 
-async function scanFolder(folder, resetOverrides = false, relocatedProfile = null) {
+async function scanFolder(folder, resetOverrides = false, relocatedProfile = null, importing = false) {
   if (!invoke || state.busy) return;
   const selectedFolder = state.scan?.assets[state.selectedIndex]?.folder;
   setBusy(true, "Scanning FBX and texture files…");
@@ -99,19 +129,45 @@ async function scanFolder(folder, resetOverrides = false, relocatedProfile = nul
       textureOptions: { projectMain: choices.projectMain, lod2Overrides: choices.lod2Overrides },
       assetSettingsOverrides: choices.assetSettingsOverrides,
     });
-    const empty = { textureOverrides: [], lod2Overrides: [], assetSettingsOverrides: [], projectMain: null };
+    const empty = ProjectProfiles.empty();
     const initial = await scanRequest(folder, empty);
     const existingProfile = resetOverrides ? localStorage.getItem(profileKey(initial.root)) : null;
-    if (relocatedProfile && existingProfile && existingProfile !== relocatedProfile) {
+    if (!importing && relocatedProfile && existingProfile !== null && existingProfile !== relocatedProfile) {
       throw new Error("That folder already has saved choices. Open it with Scan Export Folder.");
     }
     const saved = relocatedProfile ?? existingProfile;
-    const choices = saved
-      ? ProjectProfiles.decode(JSON.parse(saved), initial.root)
-      : resetOverrides ? empty : projectChoices();
+    let expectedTextures, expectedFbx;
+    let choices = resetOverrides ? empty : projectChoices();
+    let recoveryWarnings = resetOverrides ? [] : state.recoveryWarnings;
+    if (saved !== null) {
+      try {
+        ({ choices, warnings: recoveryWarnings, expectedTextures, expectedFbx } = ProjectProfiles.decode(
+          JSON.parse(saved), initial.root, !importing && !relocatedProfile,
+        ));
+      } catch (error) {
+        if (importing || relocatedProfile) throw error;
+        recoveryWarnings = [String(error)];
+      }
+    }
     const active = activeChoices(choices, initial.assets);
     const scan = active.projectMain || active.textureOverrides.length || active.lod2Overrides.length || active.assetSettingsOverrides.length
       ? await scanRequest(initial.root, active) : initial;
+    const findings = ProjectProfiles.findings(choices, scan, { expectedTextures, expectedFbx });
+    if (importing && findings.length) {
+      throw new Error(`Profile was not imported: ${findings.join(" ")}`);
+    }
+    if (importing && existingProfile !== null && !(await invoke("confirm_profile_replacement"))) return;
+    if (importing || (relocatedProfile && existingProfile === null)) {
+      localStorage.setItem(profileKey(scan.root), JSON.stringify(ProjectProfiles.encode(scan.root, choices)));
+    }
+    state.recoveryWarnings = recoveryWarnings;
+    for (const message of recoveryWarnings) {
+      scan.globalIssues.push({ severity: "error", path: scan.root,
+        message: `Saved choices were partially recovered. The original configuration was preserved; import a valid profile to replace it. ${message}` });
+    }
+    for (const message of findings) {
+      scan.globalIssues.push({ severity: "warning", path: scan.root, message });
+    }
     state.root = scan.root;
     state.scan = scan;
     state.projectMain = choices.projectMain;
@@ -129,12 +185,14 @@ async function scanFolder(folder, resetOverrides = false, relocatedProfile = nul
         asset.issues.push({ severity: "error", code: "renamedAsset", message: "Review the saved choices for the renamed asset before generating." });
       }
     }
-    saveProject();
+    if (!recoveryWarnings.length && (!resetOverrides || existingProfile === null) && !importing && !relocatedProfile) saveProject();
+    else localStorage.setItem(lastProjectKey, scan.root);
     const preservedIndex = scan.assets.findIndex((asset) => asset.folder === selectedFolder);
     state.selectedIndex = preservedIndex >= 0 ? preservedIndex : 0;
     render();
+    if (importing) showToast("Project profile imported.");
   } catch (error) {
-    showToast(String(error));
+    showToast(importing ? String(error) : `Could not restore or scan project: ${String(error)}`);
   } finally {
     setBusy(false);
   }
@@ -172,7 +230,7 @@ function saveProject() {
 }
 
 async function generateSettings() {
-  if (!invoke || !state.root || state.busy) return;
+  if (!invoke || !state.root || state.busy || state.recoveryWarnings.length) return;
   const choices = projectChoices();
   const active = activeChoices(choices, state.scan.assets);
   if (["textureOverrides", "lod2Overrides", "assetSettingsOverrides"].some((key) =>
@@ -220,6 +278,8 @@ async function generateSettings() {
 function clearScan() {
   if (state.busy) return;
   state.root = null;
+  state.recoveryWarnings = [];
+  exportButton.disabled = true;
   state.scan = null;
   state.selectedIndex = 0;
   state.textureOverrides.clear();
@@ -242,11 +302,17 @@ function clearScan() {
 function setBusy(busy, note = "") {
   state.busy = busy;
   restoreButton.disabled = relocateButton.disabled = busy || !localStorage.getItem(lastProjectKey);
+  importButton.disabled = busy;
+  exportButton.disabled = busy || !state.root || state.recoveryWarnings.length > 0;
   elements.chooseButtons.forEach((button) => (button.disabled = busy));
   elements.clearScan.disabled = busy;
   elements.rescan.disabled = busy;
-  elements.generate.disabled = busy || !state.scan?.assets.some((asset) => asset.settings.canGenerate);
-  elements.workspace.querySelectorAll("select").forEach((select) => (select.disabled = busy));
+  elements.generate.disabled = busy || state.recoveryWarnings.length > 0 || !state.scan?.assets.some((asset) => asset.settings.canGenerate);
+  elements.workspace.querySelectorAll("select").forEach((select) => (select.disabled = busy || state.recoveryWarnings.length > 0));
+  if (state.recoveryWarnings.length) {
+    elements.workspace.querySelectorAll("[data-asset-type], #discard-stale, #apply-texture-by-material, #normal-opacity-enabled, #normal-opacity")
+      .forEach((control) => (control.disabled = true));
+  }
   elements.generationNote.textContent = note;
 }
 
@@ -296,7 +362,7 @@ function render() {
   renderProjectTextures();
   renderAssetDetail();
   elements.generationNote.textContent = `${readyCount} of ${scan.assets.length} assets ready`;
-  elements.generate.disabled = state.busy || !readyCount;
+  elements.generate.disabled = state.busy || state.recoveryWarnings.length > 0 || !readyCount;
 }
 
 function renderAssetListSelection() {
@@ -382,7 +448,7 @@ function renderAssetDetail() {
   `;
 
   elements.assetDetail.querySelector("#discard-stale")?.addEventListener("click", () => {
-    if (state.busy) return;
+    if (state.busy || state.recoveryWarnings.length) return;
     for (const map of [state.textureOverrides, state.lod2Overrides, state.assetSettingsOverrides]) {
       if (!savedChoice(map, asset)) map.delete(asset.folder);
     }
@@ -447,7 +513,7 @@ function assetTypeEditor(asset) {
 function bindAssetTypeControls(asset) {
   elements.assetDetail.querySelectorAll("[data-asset-type]").forEach((button) => {
     button.addEventListener("click", async () => {
-      if (state.busy || button.dataset.assetType === asset.assetType) return;
+      if (state.busy || state.recoveryWarnings.length || button.dataset.assetType === asset.assetType) return;
       if (button.dataset.assetType === "standard") {
         state.assetSettingsOverrides.delete(asset.folder);
       } else {
@@ -469,6 +535,7 @@ function bindAssetTypeControls(asset) {
     if (output) output.textContent = formatOpacity(Number(slider.value));
   });
   enabled?.addEventListener("change", async () => {
+    if (state.busy || state.recoveryWarnings.length) return;
     const current = savedChoice(state.assetSettingsOverrides, asset) ?? {
       assetFolder: asset.folder,
       assetName: asset.name,
@@ -480,7 +547,7 @@ function bindAssetTypeControls(asset) {
     await scanFolder(state.root);
   });
   slider?.addEventListener("change", async () => {
-    if (!enabled?.checked) return;
+    if (state.busy || state.recoveryWarnings.length || !enabled?.checked) return;
     state.assetSettingsOverrides.set(asset.folder, {
       assetFolder: asset.folder,
       assetName: asset.name,
@@ -528,7 +595,7 @@ function renderProjectTextures() {
     </select>
     <p class="texture-resolution-help">Choose once for the whole project. Each asset’s main mesh and LOD1 use this set unless you make a manual selection below. Choices are saved for this project on this computer.</p>`;
   elements.projectTextures.querySelector("select").addEventListener("change", async (event) => {
-    if (state.busy) return;
+    if (state.busy || state.recoveryWarnings.length) return;
     if (event.target.value === "missing") return;
     const set = event.target.value === "" ? null : state.scan.textureSets[Number(event.target.value)];
     state.projectMain = set ? { textureSetFolder: set.folder, textureSetName: set.name } : null;
@@ -619,7 +686,7 @@ function mainTextureEditor(asset) {
 
 function bindTextureSourceControls(asset) {
   elements.assetDetail.querySelector("#lod2-texture-set")?.addEventListener("change", async (event) => {
-    if (state.busy) return;
+    if (state.busy || state.recoveryWarnings.length) return;
     const value = event.target.value;
     if (value === "") state.lod2Overrides.delete(asset.folder);
     else {
@@ -631,7 +698,7 @@ function bindTextureSourceControls(asset) {
   });
   const select = elements.assetDetail.querySelector("#main-texture-set");
   select?.addEventListener("change", async () => {
-    if (state.busy) return;
+    if (state.busy || state.recoveryWarnings.length) return;
     if (select.value === "") {
       state.textureOverrides.delete(asset.folder);
     } else {
@@ -644,7 +711,7 @@ function bindTextureSourceControls(asset) {
 
   const applyButton = elements.assetDetail.querySelector("#apply-texture-by-material");
   applyButton?.addEventListener("click", async () => {
-    if (state.busy || !asset.mainTextureSet) return;
+    if (state.busy || state.recoveryWarnings.length || !asset.mainTextureSet) return;
     const material = mainMaterialForAsset(asset);
     const targets = materialApplyTargets(asset, material, asset.mainTextureSet);
     for (const target of targets) {
@@ -769,3 +836,7 @@ function showToast(message) {
   elements.toast.classList.remove("is-hidden");
   toastTimer = setTimeout(() => elements.toast.classList.add("is-hidden"), 5000);
 }
+
+initializeDragDrop();
+const startupRoot = localStorage.getItem(lastProjectKey);
+if (startupRoot) scanFolder(startupRoot, true);

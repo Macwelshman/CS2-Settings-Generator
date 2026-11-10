@@ -6,10 +6,11 @@ CS2 Settings
 
 ## Current state
 
-The desktop generator now saves per-project selections, restores or relocates
-the last project, and compares existing settings with the proposed JSON.
-FBX scanning checks exporter naming, mesh material slots and LOD relationships
-in Import Readiness.
+The desktop generator saves per-project selections, rescans the last project on
+startup, and imports and exports versioned portable profiles. Profile import
+validates assets and texture providers before applying choices; partial recovery
+preserves the original saved configuration. See [Project Profiles](docs/PROJECT_PROFILES.md).
+Changes Only previews and FBX Import Readiness remain available.
 
 Project documentation has been added to support efficient Codex development.
 
@@ -32,7 +33,10 @@ Establish an efficient, low-context Codex development workflow while preserving 
 
 ## Current task
 
-Manual desktop smoke testing on macOS and Windows remains useful.
+The macOS smoke test passed profile export, import after moving the project,
+both overwrite responses, and recovery after a normal restart and after the
+updater helper replaced and relaunched an isolated bundle. The test used a
+local staged update; release download and Windows desktop testing remain open.
 
 ## Next recommended action
 

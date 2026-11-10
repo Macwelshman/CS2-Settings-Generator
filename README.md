@@ -107,10 +107,11 @@ folder.
 For existing settings, **Changes Only** shows additions, removals, and modified
 values alongside the full JSON preview.
 
-Project texture and asset selections are saved on this computer. Use **Restore
-Last Project** to reopen them, or **Locate Moved Project…** to point the last
-profile at its relocated export folder. Missing providers and renamed assets
-are reported instead of silently switching choices.
+Project selections are saved on this computer and restored on launch. Use
+**Locate Moved Project…** after moving the folder, or **Export Project Profile…**
+and **Import Project Profile…** to carry selections to another computer. See
+[Project profiles and session recovery](docs/PROJECT_PROFILES.md) for the format
+and how missing files or damaged saved choices are handled.
 
 Existing settings files are preserved by default. Enable **Replace existing
 settings files** only when you intentionally want to overwrite them. **Clear**
